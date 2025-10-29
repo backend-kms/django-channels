@@ -13,7 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 import environ
-import boto3
+from datetime import timedelta
 from config.unfold import unfold_settings
 
 env = environ.Env(DEBUG=(bool, False))
@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'debug_toolbar',
     # REST / API / Storage
     'rest_framework',
+    'rest_framework_simplejwt',
     'drf_spectacular',
     'drf_spectacular_sidecar',
     'corsheaders',
@@ -212,11 +213,10 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 30,
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.BasicAuthentication',
-        # 'rest_framework.authentication.SessionAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+        'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',  # 추가
 }
@@ -253,4 +253,11 @@ CHANNEL_LAYERS = {
 }
 
 CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:8000']
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+}

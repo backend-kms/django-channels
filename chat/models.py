@@ -4,6 +4,36 @@ from django.utils import timezone
 
 # Create your models here.
 
+class UserProfile(models.Model):
+    """사용자 프로필 확장"""
+    user = models.OneToOneField(
+        User, 
+        on_delete=models.CASCADE, 
+        related_name="profile",
+        verbose_name="사용자"
+    )
+    avatar = models.ImageField(
+        upload_to='avatars/', 
+        blank=True, 
+        null=True,
+        verbose_name="프로필 사진"
+    )
+    bio = models.TextField(max_length=500, blank=True, verbose_name="자기소개")
+    is_online = models.BooleanField(default=False, verbose_name="온라인 상태")
+    last_activity = models.DateTimeField(default=timezone.now, verbose_name="마지막 활동")
+    preferred_language = models.CharField(
+        max_length=10, 
+        default='ko',
+        verbose_name="선호 언어"
+    )
+    
+    class Meta:
+        verbose_name = "사용자 프로필"
+        verbose_name_plural = "사용자 프로필들"
+    
+    def __str__(self):
+        return f"{self.user.username}의 프로필"
+
 class ChatRoom(models.Model):
     name = models.CharField(max_length=50, unique=True, verbose_name="방 이름")
     description = models.TextField(max_length=200, blank=True, verbose_name="방 설명")
@@ -135,35 +165,6 @@ class ChatMessage(models.Model):
         except RoomMember.DoesNotExist:
             return self.user.username
     
-class UserProfile(models.Model):
-    """사용자 프로필 확장"""
-    user = models.OneToOneField(
-        User, 
-        on_delete=models.CASCADE, 
-        related_name="profile",
-        verbose_name="사용자"
-    )
-    avatar = models.ImageField(
-        upload_to='avatars/', 
-        blank=True, 
-        null=True,
-        verbose_name="프로필 사진"
-    )
-    bio = models.TextField(max_length=500, blank=True, verbose_name="자기소개")
-    is_online = models.BooleanField(default=False, verbose_name="온라인 상태")
-    last_activity = models.DateTimeField(default=timezone.now, verbose_name="마지막 활동")
-    preferred_language = models.CharField(
-        max_length=10, 
-        default='ko',
-        verbose_name="선호 언어"
-    )
-    
-    class Meta:
-        verbose_name = "사용자 프로필"
-        verbose_name_plural = "사용자 프로필들"
-    
-    def __str__(self):
-        return f"{self.user.username}의 프로필"
 
 class ChatRoomSettings(models.Model):
     """채팅방 설정"""
