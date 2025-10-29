@@ -3,8 +3,8 @@ from django.urls import reverse_lazy
 from django.utils.translation import gettext_lazy as _
 
 unfold_settings = {
-    "SITE_TITLE": 'CookHub 관리자 페이지',
-    "SITE_HEADER": 'CookHub 관리자 페이지',
+    "SITE_TITLE": 'Channels 관리자 페이지',
+    "SITE_HEADER": 'Channels 관리자 페이지',
     "SITE_URL": "/",
     # "SITE_ICON": lambda request: static("icon.svg"),  # both modes, optimise for 32px height
     # "SITE_ICON": {
@@ -16,7 +16,7 @@ unfold_settings = {
     #     "light": lambda request: static("logo-light.svg"),  # light mode
     #     "dark": lambda request: static("logo-dark.svg"),  # dark mode
     # },
-    "SITE_SYMBOL": "settings",  # symbol from icon set
+    "SITE_SYMBOL": "chat",  # symbol from icon set
     "SITE_FAVICONS": [
         {
             "rel": "icon",
@@ -75,6 +75,39 @@ unfold_settings = {
                         "title": _("그룹"),
                         "icon": "group",
                         "link": reverse_lazy("admin:auth_group_changelist"),
+                    },
+                    {
+                        "title": _("사용자 프로필"),
+                        "icon": "account_circle",
+                        "link": reverse_lazy("admin:chat_userprofile_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("채팅 관리"),
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": _("채팅방"),
+                        "icon": "chat_bubble",
+                        "link": reverse_lazy("admin:chat_chatroom_changelist"),
+                        # "badge": "config.views.chatroom_badge_callback",
+                    },
+                    {
+                        "title": _("채팅 메시지"),
+                        "icon": "message",
+                        "link": reverse_lazy("admin:chat_chatmessage_changelist"),
+                    },
+                    {
+                        "title": _("방 멤버"),
+                        "icon": "people",
+                        "link": reverse_lazy("admin:chat_roommember_changelist"),
+                    },
+                    {
+                        "title": _("채팅방 설정"),
+                        "icon": "settings",
+                        "link": reverse_lazy("admin:chat_chatroomsettings_changelist"),
                     },
                 ],
             },
