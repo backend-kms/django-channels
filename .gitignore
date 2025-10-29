@@ -228,3 +228,14 @@ run/
 update_template.md
 .DS_Store
 .env.*
+
+# React 빌드 (chat-frontend 폴더 안의 것들)
+chat-frontend/node_modules/
+chat-frontend/build/
+chat-frontend/.env.local
+chat-frontend/.env.development.local
+chat-frontend/.env.test.local
+chat-frontend/.env.production.local
+chat-frontend/npm-debug.log*
+chat-frontend/yarn-debug.log*
+chat-frontend/yarn-error.log*
