@@ -22,6 +22,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 
 
 urlpatterns = [
+    path("chat/", include("chat.urls")),
     path('admin/', admin.site.urls),
 ]
 

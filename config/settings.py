@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "unfold.contrib.location_field",  # optional, if django-location-field package is used
     "unfold.contrib.constance",  # optional, if django-constance package is used
     # Django built-in apps
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -73,7 +74,8 @@ INSTALLED_APPS = [
     'rangefilter',
     'import_export',
     # Main apps
-    'config'
+    'config',
+    'chat',
 ]
 
 MIDDLEWARE = [
@@ -171,34 +173,34 @@ INTERNAL_IPS = [
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
-AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
-AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME")
-AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
+# AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
+# AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
+# AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
+# AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME")
+# AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
 
-AWS_BUCKET_USE = env.bool('AWS_BUCKET_USE', default=False)
+# AWS_BUCKET_USE = env.bool('AWS_BUCKET_USE', default=False)
 
-if AWS_BUCKET_USE:
-    STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
-    STATICFILES_STORAGE = 'foodpang.storages.StaticStorage'
+# if AWS_BUCKET_USE:
+#     STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/static/"
+#     STATICFILES_STORAGE = 'foodpang.storages.StaticStorage'
 
-    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/media/"
-    DEFAULT_FILE_STORAGE = 'foodpang.storages.MediaStorage'
+#     MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/media/"
+#     DEFAULT_FILE_STORAGE = 'foodpang.storages.MediaStorage'
 
-    s3_client = boto3.client(
-        "s3",
-        aws_access_key_id=AWS_ACCESS_KEY_ID,
-        aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
-        region_name=AWS_S3_REGION_NAME,
-    )
-else:
-    STATIC_URL = '/static/'
-    STATIC_ROOT = BASE_DIR / 'staticfiles'
-    MEDIA_URL = '/media/'
-    MEDIA_ROOT = BASE_DIR / 'media/'
+#     s3_client = boto3.client(
+#         "s3",
+#         aws_access_key_id=AWS_ACCESS_KEY_ID,
+#         aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+#         region_name=AWS_S3_REGION_NAME,
+#     )
+# else:
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media/'
 
-    STATICFILES_DIRS = [BASE_DIR / 'static']
+STATICFILES_DIRS = [BASE_DIR / 'static']
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -238,3 +240,14 @@ SPECTACULAR_SETTINGS = {
 
 UNFOLD = unfold_settings
 USE_THOUSAND_SEPARATOR = True
+
+# Channels
+ASGI_APPLICATION = "config.asgi.application"
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
+}
