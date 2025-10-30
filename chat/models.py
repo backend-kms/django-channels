@@ -59,11 +59,6 @@ class ChatRoom(models.Model):
     
     def __str__(self):
         return self.name
-
-    @property
-    def current_member_count(self):
-        """현재 접속 중인 멤버 수"""
-        return self.members.filter(is_online=True).count()
     
     @property
     def total_messages(self):
@@ -86,7 +81,6 @@ class RoomMember(models.Model):
     )
     joined_at = models.DateTimeField(auto_now_add=True, verbose_name="입장일시")
     last_seen = models.DateTimeField(default=timezone.now, verbose_name="마지막 접속")
-    is_online = models.BooleanField(default=False, verbose_name="온라인 상태")
     is_admin = models.BooleanField(default=False, verbose_name="관리자 권한")
     nickname = models.CharField(max_length=30, blank=True, verbose_name="방 내 닉네임")
     

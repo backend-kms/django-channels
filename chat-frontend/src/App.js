@@ -15,6 +15,7 @@ function App() {
   
   // 🏠 방 관련 상태
   const [rooms, setRooms] = useState([]);
+  const [myRooms, setMyRooms] = useState([]);
   const [stats, setStats] = useState({});
   const [currentRoom, setCurrentRoom] = useState('');
   const [roomName, setRoomName] = useState('');
@@ -58,6 +59,22 @@ function App() {
     }
   }, []);
 
+  const fetchMyRooms = useCallback(async () => {
+    if (!isAuthenticated) {
+      setMyRooms([]);
+      return;
+    }
+    
+    try {
+      const response = await axios.get('/api/my-rooms/');
+      setMyRooms(response.data || []);
+      console.log(`🏠 내 방 ${response.data?.length || 0}개 로드됨`);
+    } catch (error) {
+      console.error('❌ 내 방 목록 로드 실패:', error);
+      setMyRooms([]);
+    }
+  }, [isAuthenticated]);
+
   const fetchStats = useCallback(async () => {
     try {
       const response = await axios.get('/api/stats/');
@@ -98,6 +115,7 @@ function App() {
         
         // 데이터 새로고침
         fetchRooms();
+        fetchMyRooms();
         fetchStats();
       }
     } catch (error) {
@@ -130,6 +148,7 @@ function App() {
       setMessages([]);
       setConnected(false);
       setSocket(null);
+      setMyRooms([]);
       
       console.log('👋 로그아웃 완료');
       
@@ -160,6 +179,7 @@ function App() {
         setShowCreateRoom(false);
         setRoomForm({ name: '', description: '', max_members: 100 });
         fetchRooms();
+        fetchMyRooms();
         console.log('✅ 방 생성 성공');
       }
     } catch (error) {
@@ -188,6 +208,7 @@ function App() {
         }
         
         fetchRooms();
+        fetchMyRooms();
         console.log('✅ 방 삭제 성공');
       }
     } catch (error) {
@@ -207,25 +228,29 @@ function App() {
 
       console.log('🚪 방 입장 시도:', targetRoomName);
 
-      const messagesResponse = await axios.get(`/api/rooms/${targetRoomName}/messages/`);
-      if (messagesResponse.data) {
-        const loadedMessages = messagesResponse.data.map(msg => ({
-          id: msg.id,
-          text: msg.content || msg.message,
-          author: msg.username || 'Anonymous',
-          time: new Date(msg.created_at).toLocaleTimeString(),
-          isSystem: msg.message_type === 'system'
-        }));
-        setMessages(loadedMessages);
-      }
-
-      // WebSocket 연결 전에 방 존재 여부 확인
-      const response = await axios.get(`/api/room/${targetRoomName}/`);
+      // 1. 방 입장 API 호출
+      const joinResponse = await axios.post(`/api/rooms/${targetRoomName}/join/`);
       
-      if (response.data.success) {
+      if (joinResponse.data.success) {
+        console.log('✅ 서버 입장 성공:', joinResponse.data.message);
+        
+        // 2. 채팅 메시지 히스토리 로드
+        const messagesResponse = await axios.get(`/api/rooms/${targetRoomName}/messages/`);
+        if (messagesResponse.data) {
+          const loadedMessages = messagesResponse.data.map(msg => ({
+            id: msg.id,
+            text: msg.content || msg.message,
+            author: msg.username || 'Anonymous',
+            time: new Date(msg.created_at).toLocaleTimeString(),
+            isSystem: msg.message_type === 'system'
+          }));
+          setMessages(loadedMessages);
+        }
+
+        // 3. 방 상태 설정
         setCurrentRoom(targetRoomName);
         
-        // WebSocket 연결
+        // 4. WebSocket 연결
         const ws = new WebSocket(`ws://localhost:8000/ws/chat/${targetRoomName}/`);
         
         ws.onopen = () => {
@@ -256,15 +281,22 @@ function App() {
         ws.onerror = (error) => {
           console.error('❌ WebSocket 오류:', error);
         };
+
+        // 5. 내 방 목록 새로고침
+        fetchMyRooms();
         
-        console.log('✅ 방 입장 성공:', targetRoomName);
+        console.log('✅ 방 입장 완료:', targetRoomName);
       }
     } catch (error) {
       console.error('❌ 방 입장 실패:', error);
       if (error.response?.status === 404) {
         alert('존재하지 않는 채팅방입니다.');
+      } else if (error.response?.status === 400) {
+        const errorMessage = error.response?.data?.error || '방이 가득 찼습니다.';
+        alert(errorMessage);
       } else {
-        alert('방 입장에 실패했습니다.');
+        const errorMessage = error.response?.data?.error || error.response?.data?.detail || '방 입장에 실패했습니다.';
+        alert(errorMessage);
       }
     }
   };
@@ -284,16 +316,73 @@ function App() {
     }
   };
 
-  // 🚪 방 나가기
-  const handleLeaveRoom = () => {
+  // 🚪 방 나가기 (서버에 퇴장 알림 + 완전 정리)
+  const handleLeaveRoom = async () => {
+    if (!currentRoom) return;
+
+    // 진짜 나갈 건지 확인
+    if (!window.confirm(`'${currentRoom}' 방에서 나가시겠습니까?\n\n나가면 서버에서도 완전히 퇴장 처리됩니다.`)) {
+      return;
+    }
+
+    try {
+      // 서버에 퇴장 알림
+      await axios.post(`/api/rooms/${currentRoom}/leave/`);
+      console.log('🚪 서버에서 방 퇴장 완료');
+      
+      // 내 방 목록 새로고침
+      fetchMyRooms();
+    } catch (error) {
+      console.error('❌ 서버 방 퇴장 실패:', error);
+      // 서버 오류가 있어도 클라이언트 정리는 계속 진행
+    } finally {
+      // WebSocket 연결 해제
+      if (socket) {
+        socket.close();
+      }
+      
+      // 모든 채팅 관련 상태 초기화
+      setCurrentRoom('');
+      setMessages([]);
+      setMessage(''); // 입력 중이던 메시지도 초기화
+      setConnected(false);
+      setSocket(null);
+      
+      console.log('🚪 방에서 완전히 나감 (서버 + 클라이언트 정리)');
+    }
+  };
+
+  // 내 방에서 나가기
+  const handleLeaveMyRoom = async (roomName) => {
+    if (!window.confirm(`'${roomName}' 방에서 나가시겠습니까?`)) {
+      return;
+    }
+    
+    try {
+      await axios.post(`/api/rooms/${roomName}/leave/`);
+      fetchMyRooms();
+      alert('방에서 나갔습니다.');
+    } catch (error) {
+      console.error('❌ 방 나가기 실패:', error);
+      alert('방 나가기에 실패했습니다.');
+    }
+  };
+
+  // 뒤로가기
+  const handleDisconnectRoom = () => {
+    // WebSocket 연결 해제
     if (socket) {
       socket.close();
     }
+    
+    // 채팅 상태 초기화하여 방 목록으로 돌아가기
     setCurrentRoom('');
     setMessages([]);
     setConnected(false);
     setSocket(null);
-    console.log('🚪 방에서 나감');
+    setMessage('');
+    
+    console.log('🔙 방 목록으로 돌아가기 (서버 레코드 유지)');
   };
 
   // ⌨️ 키보드 이벤트
@@ -340,23 +429,31 @@ function App() {
         setIsAuthenticated(false);
       } finally {
         setIsLoading(false);
-        fetchRooms();
-        fetchStats();
       }
     };
 
     initializeAuth();
-  }, [setAuthToken, fetchRooms, fetchStats]);
+  }, [setAuthToken]);
+
+  // 데이터 로드
+  useEffect(() => {
+    fetchRooms();
+    fetchMyRooms();
+    fetchStats();
+  }, [fetchRooms, fetchMyRooms, fetchStats]);
 
   // 🔄 정기 데이터 새로고침
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     const interval = setInterval(() => {
       fetchRooms();
+      fetchMyRooms();
       fetchStats();
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [fetchRooms, fetchStats]);
+  }, [isAuthenticated, fetchRooms, fetchMyRooms, fetchStats]);
 
   // 🧹 컴포넌트 언마운트 시 정리
   useEffect(() => {
@@ -393,12 +490,17 @@ function App() {
           </div>
           <div className="header-actions">
             <span className="user-name">👋 {user?.username}</span>
+
+            {/* 서버 호출 포함 실제 나가기 */}
             <button onClick={handleLeaveRoom} className="btn btn-secondary">
               방 나가기
             </button>
-            <button onClick={handleLogout} className="btn btn-outline">
-              로그아웃
+
+            {/* WebSocket만 끊기 */}
+            <button onClick={handleDisconnectRoom} className="btn btn-outline">
+              뒤로가기
             </button>
+
           </div>
         </div>
 
@@ -453,8 +555,14 @@ function App() {
     <div className="app">
       {/* 헤더 */}
       <header className="app-header">
-        <h1>🚀 Simple Chat</h1>
+        <h1>Test 채팅</h1>
         <div className="header-actions">
+          {/* 온라인 사용자 수 */}
+          <div className="online-stats">
+            <span className="stat-icon">🌱</span>
+            <span className="stat-text">  {stats.online_users || 0}</span>
+          </div>
+          
           {isAuthenticated ? (
             <div className="user-menu">
               <span className="user-info">👋 {user.username}님</span>
@@ -490,68 +598,79 @@ function App() {
 
       {/* 메인 컨텐츠 */}
       <main className="main-content">
-        {/* 통계 섹션 */}
-        <section className="stats-section">
-          <h2>📊 서버 통계</h2>
-          <div className="stats-grid">
-            <div className="stat-card">
-              <div className="stat-number">{stats.total_rooms || 0}</div>
-              <div className="stat-label">활성 채팅방</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-number">{stats.total_users || 0}</div>
-              <div className="stat-label">총 사용자</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-number">{stats.online_users || 0}</div>
-              <div className="stat-label">온라인 사용자</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-number">{stats.today_messages || 0}</div>
-              <div className="stat-label">오늘 메시지</div>
-            </div>
-          </div>
-        </section>
 
-        {/* 방 입장 섹션 */}
-        <section className="join-section">
-          <h2>🚪 채팅방 입장</h2>
-          <div className="join-form">
-            <input
-              type="text"
-              value={roomName}
-              onChange={(e) => setRoomName(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="방 이름을 입력하세요"
-              className="room-input"
-            />
-            <button 
-              onClick={() => handleJoinRoom(roomName)} 
-              disabled={!isAuthenticated || !roomName.trim()}
-              className="btn btn-primary"
-            >
-              입장하기
-            </button>
-          </div>
-        </section>
+        {/* 내가 입장한 채팅방 목록 */}
+        {isAuthenticated && myRooms.length > 0 && (
+          <section className="my-rooms-section">
+            <div className="section-header">
+              <h2>🏠 내가 입장한 채팅방</h2>
+              <span className="room-count">{myRooms.length}개</span>
+            </div>
+            <div className="my-rooms-grid">
+              {myRooms.map(room => (
+                <div key={room.id} className="my-room-card">
+                  <h3 className="room-name">{room.name}</h3>
+                  <p className="room-description">{room.description}</p>
+                  <div className="room-info">
+                    <span className="room-members">
+                      👥 {room.member_count}/{room.max_members}
+                    </span>
+                    <span className="last-seen">
+                      🕐 {room.last_seen ? new Date(room.last_seen).toLocaleString() : '미접속'}
+                    </span>
+                  </div>
+                  <div className="room-actions">
+                    <button 
+                      className="btn btn-primary btn-sm"
+                      onClick={() => handleJoinRoom(room.name)}
+                    >
+                      입장하기
+                    </button>
+                    <button 
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => handleLeaveMyRoom(room.name)}
+                    >
+                      나가기
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* 방 생성 섹션 */}
         {isAuthenticated && (
           <section className="create-section">
-            <h2>🏠 새 채팅방 만들기</h2>
-            {!showCreateRoom ? (
-              <button onClick={() => setShowCreateRoom(true)} className="btn btn-success">
-                방 만들기
-              </button>
-            ) : (
+            <div className="section-header">
+              <h2>✚ 새 방 만들기</h2>
+              {!showCreateRoom && (
+                <button onClick={() => setShowCreateRoom(true)} className="btn btn-success btn-sm">
+                  + 방 만들기
+                </button>
+              )}
+            </div>
+            
+            {showCreateRoom && (
               <div className="create-form">
-                <input
-                  type="text"
-                  placeholder="방 이름"
-                  value={roomForm.name}
-                  onChange={(e) => setRoomForm({...roomForm, name: e.target.value})}
-                  className="form-input"
-                />
+                <div className="form-row">
+                  <input
+                    type="text"
+                    placeholder="방 이름"
+                    value={roomForm.name}
+                    onChange={(e) => setRoomForm({...roomForm, name: e.target.value})}
+                    className="form-input"
+                  />
+                  <input
+                    type="number"
+                    placeholder="최대 인원"
+                    value={roomForm.max_members}
+                    onChange={(e) => setRoomForm({...roomForm, max_members: e.target.value})}
+                    className="form-input form-input-small"
+                    min="1"
+                    max="1000"
+                  />
+                </div>
                 <input
                   type="text"
                   placeholder="방 설명 (선택사항)"
@@ -559,21 +678,12 @@ function App() {
                   onChange={(e) => setRoomForm({...roomForm, description: e.target.value})}
                   className="form-input"
                 />
-                <input
-                  type="number"
-                  placeholder="최대 인원"
-                  value={roomForm.max_members}
-                  onChange={(e) => setRoomForm({...roomForm, max_members: e.target.value})}
-                  className="form-input"
-                  min="1"
-                  max="1000"
-                />
                 <div className="form-actions">
-                  <button onClick={handleCreateRoom} className="btn btn-success">
-                    생성
-                  </button>
-                  <button onClick={() => setShowCreateRoom(false)} className="btn btn-secondary">
+                  <button onClick={() => setShowCreateRoom(false)} className="btn btn-outline btn-sm">
                     취소
+                  </button>
+                  <button onClick={handleCreateRoom} className="btn btn-success btn-sm">
+                    생성
                   </button>
                 </div>
               </div>
@@ -581,9 +691,9 @@ function App() {
           </section>
         )}
 
-        {/* 채팅방 목록 */}
+        {/* 모든 채팅방 목록 */}
         <section className="rooms-section">
-          <h2>💭 채팅방 목록</h2>
+          <h2>🌟 모든 채팅방</h2>
           {rooms.length === 0 ? (
             <div className="empty-rooms">
               <p>아직 채팅방이 없습니다.</p>

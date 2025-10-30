@@ -10,10 +10,12 @@ urlpatterns = [
     path("api/auth/profile/", views.UserProfileAPIView.as_view(), name="api_profile"),
 
     path("api/rooms/", views.RoomListAPIView.as_view(), name="api_room_list"),
+    path("api/my-rooms/", views.MyRoomsAPIView.as_view(), name="api_user_room_list"),
     path("api/rooms/create/", views.RoomCreateAPIView.as_view(), name="api_room_create"),
-    path("api/room/<str:room_name>/", views.RoomDetailAPIView.as_view(), name="api_room_detail"),
     path("api/stats/", views.RoomStatsAPIView.as_view(), name="api_room_stats"),
     path("api/rooms/delete/<int:room_id>/", views.RoomDeleteAPIView.as_view(), name="api_room_delete"),
     path("api/rooms/<str:room_name>/messages/", views.GetMessageAPIView.as_view(), name="api_message_list"),
+    path("api/rooms/<str:room_name>/join/", views.JoinRoomAPIView.as_view(), name="api_room_join"),
+    path("api/rooms/<str:room_name>/leave/", views.LeaveRoomAPIView.as_view(), name="api_room_leave"),
 
 ]

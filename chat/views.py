@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from chat.serializers import ChatMessageSerializer, LoginRequestSerializer, LoginResponseSerializer
-from .models import ChatRoom, ChatMessage, UserProfile
+from .models import ChatRoom, ChatMessage, RoomMember, UserProfile
 from django.utils import timezone
 from django.contrib.auth import authenticate
 from drf_spectacular.utils import extend_schema
@@ -149,7 +149,8 @@ class RoomListAPIView(APIView):
 
     def get(self, request):
         try:
-            rooms = ChatRoom.objects.filter(is_active=True).select_related('created_by')[:20]
+            rooms_in_me = RoomMember.objects.filter(user=request.user, room__is_active=True).values_list('room_id', flat=True) if request.user.is_authenticated else []
+            rooms = ChatRoom.objects.filter(is_active=True).exclude(id__in=rooms_in_me).select_related('created_by')[:20]
 
             rooms_data = []
             for room in rooms:
@@ -164,8 +165,8 @@ class RoomListAPIView(APIView):
                     'description': room.description,
                     'created_at': room.created_at.isoformat(),
                     'created_by': room.created_by.username if room.created_by else '알 수 없음',
-                    'member_count': room.current_member_count,
                     'max_members': room.max_members,
+                    'member_count': RoomMember.objects.filter(room=room).count(),
                     'can_delete': can_delete,
                 })
             
@@ -177,6 +178,49 @@ class RoomListAPIView(APIView):
 
         except Exception as e:
             print(f"❌ 방 목록 오류: {e}")
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class MyRoomsAPIView(APIView):
+    """내가 속한 채팅방 목록 조회 API"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        try:
+            # 현재 사용자가 멤버로 등록된 활성 방들 조회
+            my_memberships = RoomMember.objects.filter(
+                user=request.user,
+                room__is_active=True
+            ).select_related('room', 'room__created_by').order_by('-last_seen')
+            
+            rooms_data = []
+            for membership in my_memberships:
+                room = membership.room
+                
+                # 현재 멤버 수 계산
+                current_member_count = RoomMember.objects.filter(room=room).count()
+                
+                rooms_data.append({
+                    'id': room.id,
+                    'name': room.name,
+                    'description': room.description,
+                    'created_at': room.created_at.isoformat(),
+                    'created_by': room.created_by.username if room.created_by else '알 수 없음',
+                    'max_members': room.max_members,
+                    'member_count': current_member_count,
+                    'is_admin': membership.is_admin,
+                    'last_seen': membership.last_seen.isoformat() if membership.last_seen else None,
+                    'joined_at': membership.created_at.isoformat() if hasattr(membership, 'created_at') else None,
+                })
+            
+            print(f"✅ {request.user.username}님의 참여 방 {len(rooms_data)}개 반환")
+            
+            return Response(rooms_data)
+            
+        except Exception as e:
+            print(f"❌ 내 방 목록 오류: {e}")
             return Response({
                 'success': False,
                 'error': str(e)
@@ -221,6 +265,13 @@ class RoomCreateAPIView(APIView):
                 description=description or f'{room_name} 채팅방',
                 max_members=max_members,
                 created_by=request.user,
+            )
+
+            RoomMember.objects.create(
+                room=room,
+                user=request.user,
+                is_admin=True,
+                last_seen=timezone.now()
             )
             
             print(f"✅ 방 생성 완료: {room.name}, 생성자: {room.created_by.username}, 최대인원: {max_members}")
@@ -281,39 +332,6 @@ class RoomDeleteAPIView(APIView):
             
         except Exception as e:
             print(f"❌ 방 삭제 오류: {e}")
-            return Response({
-                'success': False,
-                'error': str(e)
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-class RoomDetailAPIView(APIView):
-    """채팅방 상세 정보"""
-    permission_classes = [AllowAny]
-    
-    def get(self, request, room_name):
-        try:
-            room, created = ChatRoom.objects.get_or_create(
-                name=room_name,
-                defaults={
-                    'description': f'{room_name} 채팅방',
-                    'created_by': request.user if request.user.is_authenticated else None
-                }
-            )
-            
-            return Response({
-                'success': True,
-                'room': {
-                    'id': room.id,
-                    'name': room.name,
-                    'description': room.description,
-                    'websocket_url': f'ws://localhost:8000/ws/chat/{room_name}/',
-                    'was_created': created,
-                },
-                'message': '채팅방 정보를 가져왔습니다.'
-            })
-            
-        except Exception as e:
-            print(f"❌ 방 상세 정보 오류: {e}")
             return Response({
                 'success': False,
                 'error': str(e)
@@ -386,3 +404,96 @@ class GetMessageAPIView(APIView):
                 'success': False,
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+class JoinRoomAPIView(APIView):
+    """채팅방 입장 API"""
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, room_name):
+        try:
+            room = ChatRoom.objects.get(name=room_name, is_active=True)
+        except ChatRoom.DoesNotExist:
+            return Response({
+                'detail': '존재하지 않는 채팅방입니다.'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # 최대 인원 체크 추가
+        current_members = RoomMember.objects.filter(room=room).count()
+        if current_members >= room.max_members:
+            return Response({
+                'success': False,
+                'error': '채팅방이 가득 찼습니다.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        member, created = RoomMember.objects.get_or_create(
+            room=room,
+            user=request.user
+        )
+
+        member.last_seen = timezone.now()
+        member.save()
+
+        return Response({
+            "success": True, 
+            "message": f"{request.user.username}님이 입장했습니다.",
+            "room": {
+                "id": room.id,
+                "name": room.name,
+                "description": room.description,
+                "current_members": current_members + (1 if created else 0),
+                "max_members": room.max_members
+            }
+        })
+
+class LeaveRoomAPIView(APIView):
+    """채팅방 퇴장 API"""
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, room_name):
+        try:
+            room = ChatRoom.objects.get(name=room_name, is_active=True)
+        except ChatRoom.DoesNotExist:
+            return Response({
+                'detail': '존재하지 않는 채팅방입니다.'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        deleted_count, _ = RoomMember.objects.filter(room=room, user=request.user).delete()
+        
+        if deleted_count > 0:
+            print(f"🚪 {request.user.username}님이 '{room_name}' 방에서 퇴장했습니다.")
+
+            # 퇴장 후 남은 멤버 수 확인
+            remaining_members = RoomMember.objects.filter(room=room)
+            member_count = remaining_members.count()
+
+            # 멤버가 하나도 없으면 방 비활성화
+            if member_count == 0:
+                room.is_active = False
+                room.save()
+                print(f"🏠 '{room_name}' 방이 비어있어 비활성화되었습니다.")
+                
+                return Response({
+                    "success": True, 
+                    "message": f"{request.user.username}님이 퇴장했습니다. 방이 비활성화되었습니다.",
+                    "room_deactivated": True
+                })
+            else:
+                first_member = remaining_members.first()
+                if first_member:
+                    first_member.is_admin = True
+                    first_member.save()
+                print(f"👥 '{room_name}' 방에 {member_count}명이 남아있습니다.")
+                
+                return Response({
+                    "success": True, 
+                    "message": f"{request.user.username}님이 퇴장했습니다.",
+                    "remaining_members": member_count,
+                    "room_deactivated": False
+                })
+        else:
+            # 이미 방에 참여하지 않은 상태
+            return Response({
+                "success": False, 
+                "detail": "방에 참여하지 않은 상태입니다."
+            }, status=status.HTTP_400_BAD_REQUEST)
+        

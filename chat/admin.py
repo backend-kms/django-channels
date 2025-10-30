@@ -7,10 +7,10 @@ from .models import ChatRoom, RoomMember, ChatMessage, UserProfile, ChatRoomSett
 
 @admin.register(ChatRoom)
 class ChatRoomAdmin(admin.ModelAdmin):
-    list_display = ['name', 'description', 'created_by', 'current_member_count', 'is_active', 'created_at']
+    list_display = ['name', 'description','is_active', 'created_at']
     list_filter = ['is_active', 'is_private', 'created_at']
     search_fields = ['name', 'description']
-    readonly_fields = ['created_at', 'updated_at', 'current_member_count', 'total_messages']
+    readonly_fields = ['created_at', 'updated_at','total_messages']
     
     fieldsets = (
         ('기본 정보', {
@@ -20,7 +20,7 @@ class ChatRoomAdmin(admin.ModelAdmin):
             'fields': ('is_active', 'is_private', 'password', 'max_members')
         }),
         ('통계', {
-            'fields': ('current_member_count', 'total_messages'),
+            'fields': ('total_messages',), 
             'classes': ('collapse',)
         }),
         ('날짜', {
@@ -32,8 +32,8 @@ class ChatRoomAdmin(admin.ModelAdmin):
 
 @admin.register(RoomMember)
 class RoomMemberAdmin(admin.ModelAdmin):
-    list_display = ['user', 'room', 'is_online', 'is_admin', 'joined_at']
-    list_filter = ['is_online', 'is_admin', 'joined_at']
+    list_display = ['user', 'room', 'is_admin', 'joined_at']
+    list_filter = ['is_admin', 'joined_at']
     search_fields = ['user__username', 'room__name', 'nickname']
 
 
