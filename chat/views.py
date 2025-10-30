@@ -5,7 +5,7 @@ from rest_framework import status
 from django.contrib.auth.models import User
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-from chat.serializers import LoginRequestSerializer, LoginResponseSerializer
+from chat.serializers import ChatMessageSerializer, LoginRequestSerializer, LoginResponseSerializer
 from .models import ChatRoom, ChatMessage, UserProfile
 from django.utils import timezone
 from django.contrib.auth import authenticate
@@ -248,7 +248,6 @@ class RoomCreateAPIView(APIView):
                 'error': str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 class RoomDeleteAPIView(APIView):
     """채팅방 삭제 API"""
     permission_classes = [IsAuthenticated]
@@ -354,6 +353,35 @@ class RoomStatsAPIView(APIView):
             
         except Exception as e:
             print(f"❌ 통계 오류: {e}")
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+class GetMessageAPIView(APIView):
+    """채팅방 메시지 조회 API"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, room_name):
+        try:
+            try:
+                room = ChatRoom.objects.get(name=room_name, is_active=True)
+            except ChatRoom.DoesNotExist:
+                return Response({
+                    'success': False,
+                    'error': '존재하지 않는 채팅방입니다.'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            messages = ChatMessage.objects.filter(
+                room=room,
+                is_deleted=False
+            ).select_related('user', 'room').order_by('created_at')
+            
+            serializer = ChatMessageSerializer(messages, many=True)
+            return Response(serializer.data)
+            
+        except Exception as e:
+            print(f"❌ 메시지 조회 오류: {e}")
             return Response({
                 'success': False,
                 'error': str(e)

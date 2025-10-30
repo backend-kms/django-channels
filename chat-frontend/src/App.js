@@ -206,11 +206,24 @@ function App() {
       }
 
       console.log('🚪 방 입장 시도:', targetRoomName);
+
+      const messagesResponse = await axios.get(`/api/rooms/${targetRoomName}/messages/`);
+      if (messagesResponse.data) {
+        const loadedMessages = messagesResponse.data.map(msg => ({
+          id: msg.id,
+          text: msg.content || msg.message,
+          author: msg.username || 'Anonymous',
+          time: new Date(msg.created_at).toLocaleTimeString(),
+          isSystem: msg.message_type === 'system'
+        }));
+        setMessages(loadedMessages);
+      }
+
+      // WebSocket 연결 전에 방 존재 여부 확인
       const response = await axios.get(`/api/room/${targetRoomName}/`);
       
       if (response.data.success) {
         setCurrentRoom(targetRoomName);
-        setMessages([]);
         
         // WebSocket 연결
         const ws = new WebSocket(`ws://localhost:8000/ws/chat/${targetRoomName}/`);
