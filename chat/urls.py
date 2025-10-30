@@ -4,7 +4,7 @@ from . import views
 urlpatterns = [
     # 기존 템플릿 뷰들 (테스트용)
     path("", views.index, name="index"),
-    path("<str:room_name>/", views.room, name="room"),
+    # path("<str:room_name>/", views.room, name="room"),
 
     # 인증 API (로그인/로그아웃만)
     path("api/auth/login/", views.LoginAPIView.as_view(), name="api_login"),

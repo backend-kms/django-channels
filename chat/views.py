@@ -3,18 +3,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth.models import User
-from rest_framework.decorators import api_view
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from chat.serializers import LoginRequestSerializer, LoginResponseSerializer
-from .models import ChatRoom, RoomMember, ChatMessage, UserProfile, ChatRoomSettings
-from django.db.models import Count, Q
+from .models import ChatRoom, ChatMessage, UserProfile
 from django.utils import timezone
-from datetime import timedelta
-import re
-from django.contrib.auth import authenticate, login, logout
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
+from django.contrib.auth import authenticate
 from drf_spectacular.utils import extend_schema
 
 
