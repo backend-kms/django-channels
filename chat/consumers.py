@@ -11,7 +11,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         # Join room group
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
-
         await self.accept()
 
     async def disconnect(self, close_code):
@@ -24,7 +23,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message = text_data_json["message"]
         username = text_data_json.get('username', 'Anonymous')
 
-        save_message = await self.save_message(username, message)
+        await self.save_message(username, message)
         
         # Send message to room group
         await self.channel_layer.group_send(

@@ -705,15 +705,6 @@ function App() {
                 <div key={room.id} className="room-card">
                   <div className="room-header">
                     <h3 className="room-name">{room.name}</h3>
-                    {room.can_delete && isAuthenticated && (
-                      <button
-                        onClick={() => handleDeleteRoom(room.id, room.name)}
-                        className="delete-btn"
-                        title="방 삭제"
-                      >
-                        🗑️
-                      </button>
-                    )}
                   </div>
                   <p className="room-description">{room.description}</p>
                   <div className="room-info">
