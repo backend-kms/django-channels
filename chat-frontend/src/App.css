@@ -613,16 +613,11 @@ section h2 {
 /* 시스템 메시지 */
 .message.system-message {
   align-items: center;
+  color: gray
 }
 
-.message.system-message .message-bubble {
-  background: #1a1a1a;
-  color: #888;
-  border-radius: 4px;
-  padding: 0.4rem 0.8rem;
-  font-size: 0.8rem;
-  font-style: italic;
-  border: 1px solid #333;
+.system-message .message-header {
+  display: none; /* 시스템 메시지는 작성자/시간 표시 안함 */
 }
 
 .message-header {

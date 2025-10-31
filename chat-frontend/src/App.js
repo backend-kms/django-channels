@@ -31,6 +31,8 @@ function App() {
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [roomForm, setRoomForm] = useState({ name: '', description: '', max_members: 100 });
 
+  
+
   // 🔑 JWT 토큰 관리
   const setAuthToken = useCallback((token) => {
     if (token) {
@@ -189,35 +191,6 @@ function App() {
     }
   };
 
-  // 🗑️ 방 삭제
-  const handleDeleteRoom = async (roomId, roomName) => {
-    try {
-      if (!window.confirm(`정말로 '${roomName}' 방을 삭제하시겠습니까?`)) {
-        return;
-      }
-
-      console.log('🗑️ 방 삭제 시도:', roomName);
-      const response = await axios.delete(`/api/rooms/delete/${roomId}/`);
-      
-      if (response.data.success) {
-        alert(response.data.message);
-        
-        // 현재 방이 삭제된 방이면 나가기
-        if (currentRoom === roomName) {
-          handleLeaveRoom();
-        }
-        
-        fetchRooms();
-        fetchMyRooms();
-        console.log('✅ 방 삭제 성공');
-      }
-    } catch (error) {
-      console.error('❌ 방 삭제 실패:', error);
-      const errorMessage = error.response?.data?.error || '방 삭제에 실패했습니다.';
-      alert(errorMessage);
-    }
-  };
-
   // 🚪 방 입장
   const handleJoinRoom = async (targetRoomName) => {
     try {
@@ -305,7 +278,7 @@ function App() {
   const handleSendMessage = () => {
     if (socket && message.trim() && connected) {
       socket.send(JSON.stringify({
-        type: 'chat_message',
+        type: 'text',
         message: message.trim(),
         username: user?.username
       }));
@@ -321,11 +294,21 @@ function App() {
     if (!currentRoom) return;
 
     // 진짜 나갈 건지 확인
-    if (!window.confirm(`'${currentRoom}' 방에서 나가시겠습니까?\n\n나가면 서버에서도 완전히 퇴장 처리됩니다.`)) {
+    if (!window.confirm(`'${currentRoom}' 방에서 나가시겠습니까?`)) {
       return;
     }
 
     try {
+
+      if (socket && connected) {
+        socket.send(JSON.stringify({
+          type: 'user_leave',
+          username: user?.username,
+        }));
+        // 잠깐 기다려서 퇴장 메시지가 전송되도록 함
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
       // 서버에 퇴장 알림
       await axios.post(`/api/rooms/${currentRoom}/leave/`);
       console.log('🚪 서버에서 방 퇴장 완료');
@@ -359,6 +342,14 @@ function App() {
     }
     
     try {
+      if (currentRoom === roomName && socket && connected) {
+        socket.send(JSON.stringify({
+          type: 'user_leave',
+          username: user?.username
+        }));
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
       await axios.post(`/api/rooms/${roomName}/leave/`);
       fetchMyRooms();
       alert('방에서 나갔습니다.');
