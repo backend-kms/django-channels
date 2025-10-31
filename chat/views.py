@@ -384,6 +384,7 @@ class GetMessageAPIView(APIView):
         try:
             try:
                 room = ChatRoom.objects.get(name=room_name, is_active=True)
+                room_member = RoomMember.objects.get(room=room, user=request.user)
             except ChatRoom.DoesNotExist:
                 return Response({
                     'success': False,
@@ -392,7 +393,8 @@ class GetMessageAPIView(APIView):
             
             messages = ChatMessage.objects.filter(
                 room=room,
-                is_deleted=False
+                is_deleted=False,
+                created_at__gt=room_member.joined_at
             ).select_related('user', 'room').order_by('created_at')
             
             serializer = ChatMessageSerializer(messages, many=True)
