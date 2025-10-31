@@ -206,6 +206,7 @@ function App() {
       
       if (joinResponse.data.success) {
         console.log('✅ 서버 입장 성공:', joinResponse.data.message);
+        const isFirstJoin = joinResponse.data.is_first;
         
         // 2. 채팅 메시지 히스토리 로드
         const messagesResponse = await axios.get(`/api/rooms/${targetRoomName}/messages/`);
@@ -230,6 +231,17 @@ function App() {
           console.log('🔗 WebSocket 연결됨');
           setSocket(ws);
           setConnected(true);
+
+          if (isFirstJoin) {
+            // 첫 입장 알림 전송
+            ws.send(JSON.stringify({
+              type: 'user_join',
+              username: user?.username,
+            }));
+            console.log('🎉 첫 입장 - 입장 메시지 전송');
+          } else {
+            console.log('🔄 재입장 - 입장 메시지 전송 안함');
+          }
         };
         
         ws.onmessage = (event) => {
@@ -342,17 +354,56 @@ function App() {
     }
     
     try {
+      // 현재 채팅 중인 방인 경우 WebSocket으로 퇴장 메시지 전송
       if (currentRoom === roomName && socket && connected) {
         socket.send(JSON.stringify({
           type: 'user_leave',
           username: user?.username
         }));
         await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // 서버에 퇴장 알림
+        await axios.post(`/api/rooms/${roomName}/leave/`);
+        
+        // 현재 채팅 화면 정리
+        if (socket) {
+          socket.close();
+        }
+        setCurrentRoom('');
+        setMessages([]);
+        setMessage('');
+        setConnected(false);
+        setSocket(null);
+      } else {
+        // 현재 채팅 중이 아닌 방 - 임시로 WebSocket 연결해서 퇴장 메시지 전송
+        const tempWs = new WebSocket(`ws://localhost:8000/ws/chat/${roomName}/`);
+        
+        tempWs.onopen = () => {
+          console.log('🔗 임시 WebSocket 연결됨 (퇴장 메시지용)');
+          
+          // 퇴장 메시지 전송
+          tempWs.send(JSON.stringify({
+            type: 'user_leave',
+            username: user?.username
+          }));
+          
+          // 잠깐 기다린 후 연결 해제
+          setTimeout(() => {
+            tempWs.close();
+          }, 200);
+        };
+        
+        tempWs.onerror = (error) => {
+          console.error('❌ 임시 WebSocket 오류:', error);
+        };
+        
+        // 서버에 퇴장 알림
+        await axios.post(`/api/rooms/${roomName}/leave/`);
       }
       
-      await axios.post(`/api/rooms/${roomName}/leave/`);
       fetchMyRooms();
       alert('방에서 나갔습니다.');
+      
     } catch (error) {
       console.error('❌ 방 나가기 실패:', error);
       alert('방 나가기에 실패했습니다.');
@@ -615,7 +666,7 @@ function App() {
                       className="btn btn-primary btn-sm"
                       onClick={() => handleJoinRoom(room.name)}
                     >
-                      입장하기
+                      열기
                     </button>
                     <button 
                       className="btn btn-secondary btn-sm"

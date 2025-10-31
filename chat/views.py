@@ -443,8 +443,9 @@ class JoinRoomAPIView(APIView):
                 "name": room.name,
                 "description": room.description,
                 "current_members": current_members + (1 if created else 0),
-                "max_members": room.max_members
-            }
+                "max_members": room.max_members,
+            },
+            "is_first": created
         })
 
 class LeaveRoomAPIView(APIView):
