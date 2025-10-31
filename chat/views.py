@@ -500,3 +500,31 @@ class LeaveRoomAPIView(APIView):
                 "detail": "방에 참여하지 않은 상태입니다."
             }, status=status.HTTP_400_BAD_REQUEST)
         
+class RoomInfoAPIView(APIView):
+    """채팅방 정보 조회 API"""
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, room_name):
+        try:
+            room = ChatRoom.objects.get(name=room_name, is_active=True)
+        except ChatRoom.DoesNotExist:
+            return Response({
+                'success': False,
+                'error': '존재하지 않는 채팅방입니다.'
+            }, status=status.HTTP_404_NOT_FOUND)
+        
+        # 현재 멤버 수 계산
+        current_members = RoomMember.objects.filter(room=room).count()
+        
+        return Response({
+            "success": True,
+            "room": {
+                "id": room.id,
+                "name": room.name,
+                "description": room.description,
+                "current_members": current_members,
+                "max_members": room.max_members,
+                "created_by": room.created_by.username,
+                "created_at": room.created_at,
+            }
+        })

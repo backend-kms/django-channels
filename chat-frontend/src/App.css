@@ -467,7 +467,6 @@ section h2 {
 .room-info {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 0.8rem;
   font-size: 0.75rem;
   color: #888;
   flex-wrap: wrap;
@@ -504,10 +503,12 @@ section h2 {
 .room-info h1 {
   margin: 0;
   font-size: 1.2rem;
-  font-weight: 600;
+  font-weight: 700;
+  line-height: 1.2; /* 줄 간격 조정 */
 }
 
 .status {
+  margin-left: 0.5rem;
   font-size: 0.8rem;
   font-weight: 400;
   margin-top: 0.2rem;
@@ -772,4 +773,124 @@ section h2 {
   .message.other-message .message-bubble {
     max-width: 85%;
   }
+}
+
+.member-count {
+  margin-left: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #222;
+  color: #4ade80;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid #333;
+  margin-right: 8px;
+}
+
+.chat-header {
+  background: #111111;
+  border-bottom: 1px solid #333;
+  color: white;
+  padding: 1rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.room-info {
+  flex: 1;
+  display: flex;
+  align-items: center; /* 가로 정렬로 변경 */
+  gap: 1rem; /* 요소들 사이 간격 */
+}
+
+.room-info h1 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.room-details {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* margin-top 제거 - 이제 같은 줄에 있음 */
+}
+
+.status {
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+.status.online {
+  color: #4ade80;
+}
+
+.status.offline {
+  color: #f87171;
+}
+
+/* 헤더 액션들 */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.member-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #222;
+  color: #4ade80;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid #333;
+}
+
+.member-count::before {
+  content: "👥";
+  font-size: 14px;
+}
+
+.user-name {
+  background: #222;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 0.8rem;
+  border: 1px solid #333;
+}
+
+/* 반응형에서 조정 */
+@media (max-width: 768px) {
+  .chat-header {
+    padding: 0.8rem;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+  
+  .room-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .header-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+.room-creator {
+  color: white;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.75rem;
 }

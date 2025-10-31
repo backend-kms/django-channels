@@ -18,6 +18,7 @@ function App() {
   const [myRooms, setMyRooms] = useState([]);
   const [stats, setStats] = useState({});
   const [currentRoom, setCurrentRoom] = useState('');
+  const [currentRoomInfo, setCurrentRoomInfo] = useState(null); // 현재 방 정보 추가
   const [roomName, setRoomName] = useState('');
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   
@@ -30,8 +31,6 @@ function App() {
   // 📝 폼 상태
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [roomForm, setRoomForm] = useState({ name: '', description: '', max_members: 100 });
-
-  
 
   // 🔑 JWT 토큰 관리
   const setAuthToken = useCallback((token) => {
@@ -47,6 +46,21 @@ function App() {
       console.log('🚫 토큰 제거됨');
     }
   }, []);
+
+  // 현재 방 정보 가져오기
+  const fetchCurrentRoomInfo = useCallback(async (roomName) => {
+    if (!roomName || !isAuthenticated) return;
+    
+    try {
+      const response = await axios.get(`/api/rooms/${roomName}/info/`);
+      if (response.data.success) {
+        setCurrentRoomInfo(response.data.room);
+        console.log('📊 현재 방 정보 업데이트:', response.data.room);
+      }
+    } catch (error) {
+      console.error('❌ 현재 방 정보 로드 실패:', error);
+    }
+  }, [isAuthenticated]);
 
   // 📊 데이터 로드 함수들
   const fetchRooms = useCallback(async () => {
@@ -147,6 +161,7 @@ function App() {
       setUser(null);
       setIsAuthenticated(false);
       setCurrentRoom('');
+      setCurrentRoomInfo(null);
       setMessages([]);
       setConnected(false);
       setSocket(null);
@@ -224,7 +239,10 @@ function App() {
         // 3. 방 상태 설정
         setCurrentRoom(targetRoomName);
         
-        // 4. WebSocket 연결
+        // 4. 현재 방 정보 설정
+        setCurrentRoomInfo(joinResponse.data.room);
+        
+        // 5. WebSocket 연결
         const ws = new WebSocket(`ws://localhost:8000/ws/chat/${targetRoomName}/`);
         
         ws.onopen = () => {
@@ -248,6 +266,11 @@ function App() {
           const data = JSON.parse(event.data);
           console.log('📨 메시지 수신:', data);
           
+          // 입장/퇴장 시스템 메시지일 때 방 정보 새로고침
+          if (data.type === 'system' && (data.message.includes('입장') || data.message.includes('퇴장'))) {
+            setTimeout(() => fetchCurrentRoomInfo(targetRoomName), 500);
+          }
+          
           setMessages(prev => [...prev, {
             id: Date.now() + Math.random(),
             text: data.message,
@@ -267,7 +290,7 @@ function App() {
           console.error('❌ WebSocket 오류:', error);
         };
 
-        // 5. 내 방 목록 새로고침
+        // 6. 내 방 목록 새로고침
         fetchMyRooms();
         
         console.log('✅ 방 입장 완료:', targetRoomName);
@@ -310,8 +333,9 @@ function App() {
       return;
     }
 
-    try {
+    const leavingRoomName = currentRoom;
 
+    try {
       if (socket && connected) {
         socket.send(JSON.stringify({
           type: 'user_leave',
@@ -322,7 +346,7 @@ function App() {
       }
 
       // 서버에 퇴장 알림
-      await axios.post(`/api/rooms/${currentRoom}/leave/`);
+      await axios.post(`/api/rooms/${leavingRoomName}/leave/`);
       console.log('🚪 서버에서 방 퇴장 완료');
       
       // 내 방 목록 새로고침
@@ -338,8 +362,9 @@ function App() {
       
       // 모든 채팅 관련 상태 초기화
       setCurrentRoom('');
+      setCurrentRoomInfo(null);
       setMessages([]);
-      setMessage(''); // 입력 중이던 메시지도 초기화
+      setMessage('');
       setConnected(false);
       setSocket(null);
       
@@ -370,6 +395,7 @@ function App() {
           socket.close();
         }
         setCurrentRoom('');
+        setCurrentRoomInfo(null);
         setMessages([]);
         setMessage('');
         setConnected(false);
@@ -419,6 +445,7 @@ function App() {
     
     // 채팅 상태 초기화하여 방 목록으로 돌아가기
     setCurrentRoom('');
+    setCurrentRoomInfo(null);
     setMessages([]);
     setConnected(false);
     setSocket(null);
@@ -492,10 +519,14 @@ function App() {
       fetchRooms();
       fetchMyRooms();
       fetchStats();
+      // 현재 방 정보도 정기적으로 새로고침
+      if (currentRoom) {
+        fetchCurrentRoomInfo(currentRoom);
+      }
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [isAuthenticated, fetchRooms, fetchMyRooms, fetchStats]);
+  }, [isAuthenticated, fetchRooms, fetchMyRooms, fetchStats, currentRoom, fetchCurrentRoomInfo]);
 
   // 🧹 컴포넌트 언마운트 시 정리
   useEffect(() => {
@@ -526,9 +557,16 @@ function App() {
         <div className="chat-header">
           <div className="room-info">
             <h1>💬 {currentRoom}</h1>
-            <span className={`status ${connected ? 'online' : 'offline'}`}>
-              {connected ? '🟢 연결됨' : '🔴 연결 안됨'}
-            </span>
+            <div className="room-details">
+              <span className={`status ${connected ? 'online' : 'offline'}`}>
+                {connected ? '🟢 연결됨' : '🔴 연결 안됨'}
+              </span>
+              {currentRoomInfo && (
+                <span className="member-count">
+                  {currentRoomInfo.current_members || 0}/{currentRoomInfo.max_members || 0}
+                </span>
+              )}
+            </div>
           </div>
           <div className="header-actions">
             <span className="user-name">👋 {user?.username}</span>
@@ -542,7 +580,6 @@ function App() {
             <button onClick={handleDisconnectRoom} className="btn btn-outline">
               뒤로가기
             </button>
-
           </div>
         </div>
 
@@ -601,7 +638,7 @@ function App() {
         <div className="header-actions">
           {/* 온라인 사용자 수 */}
           <div className="online-stats">
-            <span className="stat-icon">🌱</span>
+            <span className="stat-icon stat-text">🌱 온라인 수: </span>
             <span className="stat-text">  {stats.online_users || 0}</span>
           </div>
           
