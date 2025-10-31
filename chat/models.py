@@ -135,8 +135,6 @@ class ChatMessage(models.Model):
         ('image', '이미지'),
         ('file', '파일'),
         ('system', '시스템 메시지'),
-        ('join', '입장 알림'),
-        ('leave', '퇴장 알림'),
     ]
     
     room = models.ForeignKey(
