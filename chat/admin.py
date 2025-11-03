@@ -2,7 +2,7 @@ from django.contrib import admin
 
 # Register your models here.
 from django.contrib import admin
-from .models import ChatRoom, RoomMember, ChatMessage, UserProfile, ChatRoomSettings
+from .models import ChatRoom, RoomMember, ChatMessage, UserProfile
 
 
 @admin.register(ChatRoom)
@@ -54,9 +54,3 @@ class UserProfileAdmin(admin.ModelAdmin):
     list_display = ['user', 'is_online', 'last_activity', 'preferred_language']
     list_filter = ['is_online', 'preferred_language', 'last_activity']
     search_fields = ['user__username', 'bio']
-
-
-@admin.register(ChatRoomSettings)
-class ChatRoomSettingsAdmin(admin.ModelAdmin):
-    list_display = ['room', 'allow_file_upload', 'allow_image_upload', 'slow_mode_seconds']
-    list_filter = ['allow_file_upload', 'allow_image_upload', 'auto_delete_messages']

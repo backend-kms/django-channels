@@ -63,40 +63,6 @@ class ChatRoom(models.Model):
         return self.messages.count()
 
 
-class ChatRoomSettings(models.Model):
-    """채팅방 설정"""
-
-    room = models.OneToOneField(
-        ChatRoom,
-        on_delete=models.CASCADE,
-        related_name="settings",
-        verbose_name="채팅방",
-    )
-    allow_file_upload = models.BooleanField(
-        default=True, verbose_name="파일 업로드 허용"
-    )
-    allow_image_upload = models.BooleanField(
-        default=True, verbose_name="이미지 업로드 허용"
-    )
-    message_retention_days = models.PositiveIntegerField(
-        default=30, verbose_name="메시지 보관 기간(일)"
-    )
-    slow_mode_seconds = models.PositiveIntegerField(
-        default=0, verbose_name="슬로우 모드(초)", help_text="0이면 비활성화"
-    )
-    auto_delete_messages = models.BooleanField(
-        default=False, verbose_name="메시지 자동 삭제"
-    )
-    welcome_message = models.TextField(blank=True, verbose_name="환영 메시지")
-
-    class Meta:
-        verbose_name = "채팅방 설정"
-        verbose_name_plural = "채팅방 설정들"
-
-    def __str__(self):
-        return f"{self.room.name} 설정"
-
-
 class RoomMember(models.Model):
     """채팅방 멤버 관리"""
 

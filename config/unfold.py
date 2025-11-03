@@ -104,11 +104,6 @@ unfold_settings = {
                         "icon": "people",
                         "link": reverse_lazy("admin:chat_roommember_changelist"),
                     },
-                    {
-                        "title": _("채팅방 설정"),
-                        "icon": "settings",
-                        "link": reverse_lazy("admin:chat_chatroomsettings_changelist"),
-                    },
                 ],
             },
         ]

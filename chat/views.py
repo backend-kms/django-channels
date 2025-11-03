@@ -1,3 +1,4 @@
+from datetime import datetime
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -617,7 +618,7 @@ class MarkAsReadAPIView(APIView):
             member = RoomMember.objects.get(room=room, user=user)
             
             # 아직 읽지 않은 메시지들 찾기
-            last_read_time = member.last_read_message.created_at if member.last_read_message else timezone.datetime.min.replace(tzinfo=timezone.utc)
+            last_read_time = member.last_read_message.created_at if member.last_read_message else timezone.make_aware(datetime.min)
             unread_messages = ChatMessage.objects.filter(
                 room=room,
                 created_at__gt=last_read_time,
