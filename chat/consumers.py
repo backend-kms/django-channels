@@ -1,3 +1,4 @@
+from django.utils import timezone
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
@@ -49,13 +50,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
         elif message_type == 'text':
             message = text_data_json.get("message", "")
             self.username = username
-            await self.save_message(username, message, "text")  # message_type 추가
+            # 🔑 메시지 저장하고 읽음 정보도 함께 가져오기
+            message_data = await self.save_message_with_read_info(username, message, "text")
+            
             await self.channel_layer.group_send(
                 self.room_group_name, 
                 {
                     "type": "chat_message", 
                     "message": message, 
-                    "username": username
+                    "username": username,
+                    "message_id": message_data['id'] if message_data else None,
+                    "unread_count": message_data['unread_count'] if message_data else 0,
+                    "is_read_by_all": message_data['is_read_by_all'] if message_data else True,
+                    "user_id": message_data['user_id'] if message_data else None
                 }
             )
 
@@ -63,11 +70,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def chat_message(self, event):
         message = event["message"]
         username = event["username"]
+        message_id = event.get("message_id")
+        unread_count = event.get("unread_count", 0)
+        is_read_by_all = event.get("is_read_by_all", True)
+        user_id = event.get("user_id")
 
         await self.send(text_data=json.dumps({
             "message": message, 
             "username": username,
-            "type": "chat"
+            "type": "chat",
+            "message_id": message_id,
+            "unread_count": unread_count,
+            "is_read_by_all": is_read_by_all,
+            "user_id": user_id,
+            "timestamp": timezone.now().isoformat()
         }))
     
     # 시스템 메시지 핸들러 (입장/퇴장용)
@@ -92,5 +108,27 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 content=message,
                 message_type=message_type
             )
+        except (User.DoesNotExist, ChatRoom.DoesNotExist):
+            return None
+    
+    @database_sync_to_async
+    def save_message_with_read_info(self, username, message, message_type):
+        try:
+            user = User.objects.get(username=username)
+            room = ChatRoom.objects.get(name=self.room_name)
+            chat_message = ChatMessage.objects.create(
+                room=room,
+                user=user,
+                content=message,
+                message_type=message_type
+            )
+            
+            # 🔑 save() 메서드에서 자동으로 unread_count 계산됨
+            return {
+                'id': chat_message.id,
+                'unread_count': chat_message.unread_count,  # 이미 계산된 값
+                'is_read_by_all': chat_message.is_read_by_all,
+                'user_id': user.id
+            }
         except (User.DoesNotExist, ChatRoom.DoesNotExist):
             return None

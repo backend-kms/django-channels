@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import './App.css';
 
@@ -27,6 +27,7 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState('');
   const [connected, setConnected] = useState(false);
+  const messagesEndRef = useRef(null);
   
   // 📝 폼 상태
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
@@ -74,6 +75,18 @@ function App() {
       console.error('❌ 방 목록 로드 실패:', error);
     }
   }, []);
+
+  // 📖 메시지 읽음 처리
+  const markAsRead = useCallback(async (roomName) => {
+    if (!roomName || !isAuthenticated) return;
+    
+    try {
+      await axios.post(`/api/rooms/${roomName}/mark-read/`);
+      console.log('📖 메시지 읽음 처리 완료');
+    } catch (error) {
+      console.error('❌ 읽음 처리 실패:', error);
+    }
+  }, [isAuthenticated]);
 
   const fetchMyRooms = useCallback(async () => {
     if (!isAuthenticated) {
@@ -231,9 +244,14 @@ function App() {
             text: msg.content || msg.message,
             author: msg.username || 'Anonymous',
             time: new Date(msg.created_at).toLocaleTimeString(),
-            isSystem: msg.message_type === 'system'
+            isSystem: msg.message_type === 'system',
+            unreadCount: msg.unread_count || 0,
+            isReadByAll: msg.is_read_by_all || false,
+            userId: msg.user_id
           }));
           setMessages(loadedMessages);
+
+          setTimeout(() => markAsRead(targetRoomName), 300);
         }
 
         // 3. 방 상태 설정
@@ -271,13 +289,21 @@ function App() {
             setTimeout(() => fetchCurrentRoomInfo(targetRoomName), 500);
           }
           
-          setMessages(prev => [...prev, {
+          const newMessage = {
             id: Date.now() + Math.random(),
             text: data.message,
             author: data.username || data.author || 'Anonymous',
             time: new Date().toLocaleTimeString(),
-            isSystem: data.type === 'system'
-          }]);
+            isSystem: data.type === 'system',
+            unreadCount: data.unread_count || 0,
+            isReadByAll: data.is_read_by_all || false,
+            userId: data.user_id
+          };
+          
+          setMessages(prev => [...prev, newMessage]);
+          
+          // 새 메시지 수신 시 읽음 처리
+          setTimeout(() => markAsRead(targetRoomName), 100);
         };
         
         ws.onclose = () => {
@@ -319,6 +345,8 @@ function App() {
       }));
       setMessage('');
       console.log('📤 메시지 전송됨');
+
+      setTimeout(() => markAsRead(currentRoom), 100);
     } else if (!connected) {
       alert('채팅방에 연결되지 않았습니다.');
     }
@@ -537,6 +565,33 @@ function App() {
     };
   }, [socket]);
 
+  // 📖 채팅창이 활성화될 때마다 읽음 처리
+  useEffect(() => {
+    if (currentRoom && isAuthenticated) {
+      markAsRead(currentRoom);
+    }
+  }, [currentRoom, isAuthenticated, markAsRead]);
+
+  // 🔄 메시지가 변경될 때마다 자동 스크롤
+  useEffect(() => {
+    const messagesContainer = document.querySelector('.chat-messages');
+    if (messagesContainer) {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+  }, [messages]);
+
+  // 🔄 채팅방 입장 시 즉시 맨 아래로 스크롤
+  useEffect(() => {
+    if (currentRoom && messages.length > 0) {
+      setTimeout(() => {
+        const messagesContainer = document.querySelector('.chat-messages');
+        if (messagesContainer) {
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+      }, 50);
+    }
+  }, [currentRoom, messages.length]);
+
   // 🔄 로딩 화면
   if (isLoading) {
     return (
@@ -601,11 +656,44 @@ function App() {
                 <span className="author">{msg.author}</span>
                 <span className="time">{msg.time}</span>
               </div>
-              <div className="message-bubble">
-                <div className="message-content">{msg.text}</div>
-              </div>
+              
+              {/* 내 메시지는 우측 정렬 + 읽음 표시를 왼쪽에 */}
+              {!msg.isSystem && msg.author === user?.username ? (
+                <div className="message-wrapper my-wrapper">
+                  <div className="message-bubble">
+                    <div className="message-content">{msg.text}</div>
+                  </div>
+                  {/* 내 메시지의 읽음 표시 */}
+                  <div className="read-status">
+                    {msg.unreadCount > 0 && (
+                      <span className="unread-count">{msg.unreadCount}</span>
+                    )}
+                  </div>
+                </div>
+              ) : !msg.isSystem ? (
+                /* 다른 사람 메시지는 좌측 정렬 + 읽음 표시를 오른쪽에 */
+                <div className="message-wrapper other-wrapper">
+                  <div className="message-bubble">
+                    <div className="message-content">{msg.text}</div>
+                  </div>
+                  {/* 다른 사람 메시지의 읽음 표시 */}
+                  <div className="read-status">
+                    {msg.isReadByAll ? (
+                      <span className="read-all">읽음</span>
+                    ) : msg.unreadCount > 0 ? (
+                      <span className="unread-count">{msg.unreadCount}</span>
+                    ) : null}
+                  </div>
+                </div>
+              ) : (
+                /* 시스템 메시지는 읽음 표시 없음 */
+                <div className="message-bubble">
+                  <div className="message-content">{msg.text}</div>
+                </div>
+              )}
             </div>
           ))}
+          <div ref={messagesEndRef} />
         </div>
 
         <div className="message-input">

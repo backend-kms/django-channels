@@ -18,4 +18,5 @@ urlpatterns = [
     path("api/rooms/<str:room_name>/join/", views.JoinRoomAPIView.as_view(), name="api_room_join"),
     path("api/rooms/<str:room_name>/leave/", views.LeaveRoomAPIView.as_view(), name="api_room_leave"),
     path('api/rooms/<str:room_name>/info/', views.RoomInfoAPIView.as_view(), name='room_info'),
+    path("api/rooms/<str:room_name>/mark-read/", views.MarkAsReadAPIView.as_view(), name="api_mark_read"),
 ]

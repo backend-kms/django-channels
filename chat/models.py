@@ -174,6 +174,8 @@ class ChatMessage(models.Model):
         related_name="replies",
         verbose_name="답장 대상",
     )
+    unread_count = models.PositiveIntegerField(default=0, verbose_name="안 읽은 수")
+    total_members_at_time = models.PositiveIntegerField(default=0, verbose_name="메시지 전송 당시 총 멤버 수")
 
     class Meta:
         verbose_name = "채팅 메시지"
@@ -197,23 +199,49 @@ class ChatMessage(models.Model):
             return self.user.username
 
     @property
-    def unread_count(self):
-        """이 메시지를 읽지 않은 멤버 수 (메시지 전송 당시 방에 있던 멤버들만)"""
-        valid_members = RoomMember.objects.filter(  # 같은 방의 멤버들 중
-            room=self.room,
-            joined_at__lte=self.created_at,  # 메세지 생성 시간 이전에 입장한 사람들
-        )
-        # 예: 메시지가 오후 2시에 생성 → 오후 2시 이전에 입장한 사람들만 대상
-
-        # 2단계: 그 중에서 아직 이 메시지를 읽지 않은 사람들 찾기
-        unread_members = valid_members.exclude(
-            last_read_message__created_at__gte=self.created_at
-        )
-        # 마지막으로 읽은 메세지가 현재 메세지 시간보다 같거나 늦은 사람들은 제외, 즉 이미 읽은 사람들을 제외
-
-        return unread_members.count()
-
-    @property
     def is_read_by_all(self):
         """메시지 전송 당시 방에 있던 모든 멤버가 읽었는지 여부"""
         return self.unread_count == 0
+
+    def mark_as_read_by(self, user):
+        """특정 사용자가 읽음 처리"""
+        if self.unread_count > 0:
+            # 이 사용자가 메시지 생성 당시 방에 있었는지 확인
+            try:
+                member = RoomMember.objects.get(
+                    room=self.room, 
+                    user=user,
+                    joined_at__lte=self.created_at
+                )
+                # 아직 이 메시지를 읽지 않았다면 읽음 처리
+                if not member.last_read_message or member.last_read_message.created_at < self.created_at:
+                    member.last_read_message = self
+                    member.save()
+                    self.unread_count = max(0, self.unread_count - 1)
+                    self.save(update_fields=['unread_count'])
+            except RoomMember.DoesNotExist:
+                pass
+    
+    def save(self, *args, **kwargs):
+        """메시지 저장 시 초기 읽음 수 설정"""
+        if self.pk is None:  # 새로 생성되는 메시지
+            # 메시지 생성 당시 방의 총 멤버 수
+            current_members = RoomMember.objects.filter(
+                room=self.room,
+                joined_at__lte=timezone.now()
+            ).count()
+            
+            self.total_members_at_time = current_members
+            # 작성자 제외한 모든 멤버가 안 읽은 상태로 시작
+            self.unread_count = max(0, current_members - 1) if self.user else current_members
+            
+        super().save(*args, **kwargs)
+        
+        # 저장 후 작성자는 자동으로 읽음 처리
+        if self.user and self.pk:
+            try:
+                member = RoomMember.objects.get(room=self.room, user=self.user)
+                member.last_read_message = self
+                member.save(update_fields=['last_read_message'])
+            except RoomMember.DoesNotExist:
+                pass

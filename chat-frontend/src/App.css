@@ -66,10 +66,10 @@ body {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 0.8rem;
+  gap: 12px;
 }
 
-/* 헤더의 온라인 통계 */
+/* 온라인 통계 */
 .online-stats {
   display: flex;
   align-items: center;
@@ -79,15 +79,6 @@ body {
   border-radius: 4px;
   border: 1px solid #333;
   font-size: 0.8rem;
-}
-
-.online-stats .stat-icon {
-  font-size: 1rem;
-}
-
-.online-stats .stat-value {
-  font-weight: 600;
-  color: #4ade80;
 }
 
 .online-stats .stat-text {
@@ -225,14 +216,6 @@ section {
   margin-bottom: 1rem;
 }
 
-section h2 {
-  color: #ffffff;
-  margin-bottom: 0.8rem;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-/* 섹션 헤더 */
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -284,22 +267,11 @@ section h2 {
   background: #1a2f1a;
 }
 
-.my-room-card .room-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
 .my-room-card .room-name {
   color: white;
   font-size: 0.9rem;
   font-weight: 600;
-  margin: 0;
-}
-
-.room-status {
-  font-size: 0.8rem;
+  margin: 0 0 0.5rem 0;
 }
 
 .my-room-card .room-description {
@@ -317,10 +289,6 @@ section h2 {
   margin-bottom: 0.8rem;
   flex-wrap: wrap;
   gap: 0.3rem;
-}
-
-.last-seen {
-  font-size: 0.65rem;
 }
 
 .room-actions {
@@ -389,22 +357,11 @@ section h2 {
   margin-top: 0.3rem;
 }
 
-.form-actions .btn {
-  min-width: 50px;
-  font-size: 0.75rem;
-  padding: 0.4rem 0.8rem;
-}
-
 /* 방 목록 */
 .empty-rooms {
   text-align: center;
   color: #666;
   padding: 2rem 1rem;
-}
-
-.empty-rooms p {
-  margin-bottom: 0.5rem;
-  font-size: 0.9rem;
 }
 
 .rooms-grid {
@@ -426,34 +383,11 @@ section h2 {
   background: #1a1a1a;
 }
 
-.room-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 0.6rem;
-}
-
 .room-name {
   color: #ffffff;
   font-size: 1rem;
   font-weight: 600;
-  margin: 0;
-  flex: 1;
-}
-
-.delete-btn {
-  background: none;
-  border: none;
-  font-size: 1rem;
-  cursor: pointer;
-  padding: 0.2rem;
-  border-radius: 2px;
-  color: #888;
-  transition: all 0.2s ease;
-}
-
-.delete-btn:hover {
-  color: #ff4444;
+  margin: 0 0 0.6rem 0;
 }
 
 .room-description {
@@ -471,13 +405,13 @@ section h2 {
   color: #888;
   flex-wrap: wrap;
   gap: 0.3rem;
+  margin-right: 1rem;
 }
 
 .room-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: auto;
 }
 
 .room-date {
@@ -485,7 +419,7 @@ section h2 {
   color: #666;
 }
 
-/* 채팅 앱 */
+/* ========== 채팅 화면 ========== */
 .chat-app {
   background: #0a0a0a;
 }
@@ -500,18 +434,29 @@ section h2 {
   align-items: center;
 }
 
+.room-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .room-info h1 {
   margin: 0;
   font-size: 1.2rem;
   font-weight: 700;
-  line-height: 1.2; /* 줄 간격 조정 */
+  line-height: 1.2;
+}
+
+.room-details {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .status {
-  margin-left: 0.5rem;
   font-size: 0.8rem;
   font-weight: 400;
-  margin-top: 0.2rem;
 }
 
 .status.online {
@@ -520,6 +465,24 @@ section h2 {
 
 .status.offline {
   color: #f87171;
+}
+
+.member-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #222;
+  color: #4ade80;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid #333;
+}
+
+.member-count::before {
+  content: "👥";
+  font-size: 14px;
 }
 
 .user-name {
@@ -531,7 +494,7 @@ section h2 {
   border: 1px solid #333;
 }
 
-/* 채팅 메시지 */
+/* 채팅 메시지 영역 */
 .chat-messages {
   flex: 1;
   padding: 1rem;
@@ -555,70 +518,11 @@ section h2 {
   margin-bottom: 0.5rem;
 }
 
-/* 메시지 컨테이너 */
+/* 메시지 스타일 */
 .message {
   margin-bottom: 1rem;
   display: flex;
   flex-direction: column;
-}
-
-/* 내 메시지 (오른쪽) */
-.message.my-message {
-  align-items: flex-end;
-}
-
-.message.my-message .message-bubble {
-  background: #333;
-  color: white;
-  border-radius: 8px 8px 2px 8px;
-  max-width: 70%;
-  padding: 0.6rem 0.8rem;
-  word-break: break-word;
-  border: 1px solid #444;
-}
-
-.message.my-message .message-header {
-  margin-bottom: 0.3rem;
-  text-align: right;
-}
-
-.message.my-message .author {
-  font-weight: 500;
-  color: #ccc;
-}
-
-/* 상대방 메시지 (왼쪽) */
-.message.other-message {
-  align-items: flex-start;
-}
-
-.message.other-message .message-bubble {
-  background: #222;
-  color: white;
-  border-radius: 8px 8px 8px 2px;
-  max-width: 70%;
-  padding: 0.6rem 0.8rem;
-  word-break: break-word;
-  border: 1px solid #333;
-}
-
-.message.other-message .message-header {
-  margin-bottom: 0.3rem;
-}
-
-.message.other-message .author {
-  font-weight: 500;
-  color: #4ade80;
-}
-
-/* 시스템 메시지 */
-.message.system-message {
-  align-items: center;
-  color: gray
-}
-
-.system-message .message-header {
-  display: none; /* 시스템 메시지는 작성자/시간 표시 안함 */
 }
 
 .message-header {
@@ -626,6 +530,7 @@ section h2 {
   align-items: center;
   gap: 0.5rem;
   font-size: 0.7rem;
+  margin-bottom: 0.3rem;
 }
 
 .author {
@@ -640,6 +545,109 @@ section h2 {
 .message-content {
   line-height: 1.3;
   font-size: 0.8rem;
+}
+
+/* 메시지 wrapper */
+.message-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 80%;
+}
+
+/* 내 메시지 (우측 정렬) */
+.message.my-message {
+  align-items: flex-end;
+  justify-content: flex-end;
+}
+
+.message.my-message .message-header {
+  text-align: right;
+}
+
+.message.my-message .author {
+  color: #ccc;
+}
+
+.my-wrapper {
+  flex-direction: row-reverse;
+  margin-left: auto;
+}
+
+.message.my-message .message-bubble {
+  background: #007bff;
+  color: white;
+  border-radius: 10px 10px 10px 10px;
+  padding: 0.5rem 0.8rem;
+  word-break: break-word;
+}
+
+/* 다른 사람 메시지 (좌측 정렬) */
+.message.other-message {
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.message.other-message .author {
+  color: #4ade80;
+}
+
+.other-wrapper {
+  flex-direction: row;
+  margin-right: auto;
+}
+
+.message.other-message .message-bubble {
+  background: #f1f3f4;
+  color: #333;
+  border-radius: 12px 12px 12px 4px;
+  padding: 0.6rem 0.8rem;
+  word-break: break-word;
+  border: 1px solid #e0e0e0;
+}
+
+/* 시스템 메시지 */
+.message.system-message {
+  align-items: center;
+  text-align: center;
+  margin: 1rem 0;
+}
+
+.system-message .message-header {
+  display: none;
+}
+
+.system-message .message-bubble {
+  background: rgba(255, 255, 255, 0.1);
+  color: #888;
+  border-radius: 12px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: inline-block;
+}
+
+/* 읽음 표시 */
+.read-status {
+  display: flex;
+  align-items: flex-end;
+  font-size: 8.5px;
+  line-height: 1;
+  min-width: 20px;
+  padding-bottom: 3px;
+  flex-shrink: 0;
+}
+
+.unread-count {
+  color: yellow;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 9px;
+  font-weight: 600;
+  min-width: 16px;
+  text-align: center;
+  display: inline-block;
+  white-space: nowrap;
 }
 
 /* 메시지 입력 */
@@ -704,10 +712,6 @@ section h2 {
     width: 100%;
   }
 
-  .online-stats {
-    align-self: center;
-  }
-
   .login-section {
     flex-direction: column;
     width: 100%;
@@ -721,24 +725,7 @@ section h2 {
     padding: 0.8rem;
   }
 
-  section {
-    padding: 0.8rem;
-  }
-
-  .section-header {
-    flex-direction: column;
-    gap: 0.5rem;
-    align-items: flex-start;
-  }
-
-  .my-rooms-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .room-actions {
-    flex-direction: column;
-  }
-
+  .my-rooms-grid,
   .rooms-grid {
     grid-template-columns: 1fr;
   }
@@ -746,7 +733,7 @@ section h2 {
   .form-row {
     flex-direction: column;
   }
-  
+
   .form-input-small {
     flex: 1;
   }
@@ -754,7 +741,7 @@ section h2 {
   .form-actions {
     justify-content: stretch;
   }
-  
+
   .form-actions .btn {
     flex: 1;
   }
@@ -763,6 +750,18 @@ section h2 {
     padding: 0.8rem;
     flex-direction: column;
     gap: 0.5rem;
+    align-items: stretch;
+  }
+
+  .room-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .message-input {
@@ -773,124 +772,4 @@ section h2 {
   .message.other-message .message-bubble {
     max-width: 85%;
   }
-}
-
-.member-count {
-  margin-left: 0.5rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: #222;
-  color: #4ade80;
-  padding: 6px 12px;
-  border-radius: 16px;
-  font-size: 13px;
-  font-weight: 500;
-  border: 1px solid #333;
-  margin-right: 8px;
-}
-
-.chat-header {
-  background: #111111;
-  border-bottom: 1px solid #333;
-  color: white;
-  padding: 1rem 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.room-info {
-  flex: 1;
-  display: flex;
-  align-items: center; /* 가로 정렬로 변경 */
-  gap: 1rem; /* 요소들 사이 간격 */
-}
-
-.room-info h1 {
-  margin: 0;
-  font-size: 1.2rem;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.room-details {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  /* margin-top 제거 - 이제 같은 줄에 있음 */
-}
-
-.status {
-  font-size: 0.8rem;
-  font-weight: 400;
-}
-
-.status.online {
-  color: #4ade80;
-}
-
-.status.offline {
-  color: #f87171;
-}
-
-/* 헤더 액션들 */
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.member-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: #222;
-  color: #4ade80;
-  padding: 6px 12px;
-  border-radius: 16px;
-  font-size: 13px;
-  font-weight: 500;
-  border: 1px solid #333;
-}
-
-.member-count::before {
-  content: "👥";
-  font-size: 14px;
-}
-
-.user-name {
-  background: #222;
-  padding: 0.4rem 0.8rem;
-  border-radius: 4px;
-  font-weight: 500;
-  font-size: 0.8rem;
-  border: 1px solid #333;
-}
-
-/* 반응형에서 조정 */
-@media (max-width: 768px) {
-  .chat-header {
-    padding: 0.8rem;
-    flex-direction: column;
-    gap: 0.5rem;
-    align-items: stretch;
-  }
-  
-  .room-info {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-  
-  .header-actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
-}
-
-.room-creator {
-  color: white;
-  padding: 0.4rem 0.6rem;
-  font-size: 0.75rem;
 }
