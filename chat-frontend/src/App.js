@@ -755,7 +755,7 @@ function App() {
                   {/* 다른 사람 메시지의 읽음 표시 */}
                   <div className="read-status">
                     {msg.isReadByAll ? (
-                      <span className="read-all">읽음</span>
+                      <span className="read-all"></span>
                     ) : msg.unreadCount > 0 ? (
                       <span className="unread-count">{msg.unreadCount}</span>
                     ) : null}
