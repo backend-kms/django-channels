@@ -256,8 +256,8 @@ class MyRoomsAPIView(APIView):
                             else None
                         ),
                         "joined_at": (
-                            membership.created_at.isoformat()
-                            if hasattr(membership, "created_at")
+                            membership.joined_at.isoformat()  # ✅ hasattr 제거
+                            if membership.joined_at
                             else None
                         ),
                     }
@@ -453,7 +453,7 @@ class GetMessageAPIView(APIView):
                 ChatMessage.objects.filter(
                     room=room,
                     is_deleted=False,
-                    created_at__gt=room_member.joined_at,  # 또는 created_at__gte
+                    created_at__gte=room_member.joined_at,
                 )
                 .select_related("user", "room")
                 .order_by("created_at")
@@ -492,7 +492,10 @@ class JoinRoomAPIView(APIView):
         member, created = RoomMember.objects.get_or_create(room=room, user=request.user)
 
         member.last_seen = timezone.now()
+        member.is_currently_in_room = True  # 방 입장 시 True로 설정
         member.save()
+
+        online_members_count = RoomMember.objects.filter(room=room, is_currently_in_room=True).count()
 
         return Response(
             {
@@ -503,6 +506,7 @@ class JoinRoomAPIView(APIView):
                     "name": room.name,
                     "description": room.description,
                     "current_members": current_members + (1 if created else 0),
+                    "online_members": online_members_count, 
                     "max_members": room.max_members,
                 },
                 "is_first": created,
@@ -587,6 +591,7 @@ class RoomInfoAPIView(APIView):
 
         # 현재 멤버 수 계산
         current_members = RoomMember.objects.filter(room=room).count()
+        online_members = RoomMember.objects.filter(room=room, is_currently_in_room=True).count()
 
         return Response(
             {
@@ -596,6 +601,7 @@ class RoomInfoAPIView(APIView):
                     "name": room.name,
                     "description": room.description,
                     "current_members": current_members,
+                    "online_members": online_members,
                     "max_members": room.max_members,
                     "created_by": room.created_by.username,
                     "created_at": room.created_at,
@@ -626,6 +632,8 @@ class MarkAsReadAPIView(APIView):
             ).order_by('created_at')
             
             processed_count = 0
+            updated_messages = []  # ✅ 업데이트된 메시지 정보 수집
+            
             if unread_messages.exists():
                 latest_message = unread_messages.latest('created_at')
                 
@@ -633,16 +641,42 @@ class MarkAsReadAPIView(APIView):
                 for message in unread_messages:
                     message.mark_as_read_by(user)
                     processed_count += 1
+                    
+                    # ✅ 업데이트된 메시지 정보 수집
+                    message.refresh_from_db()  # 최신 정보 가져오기
+                    updated_messages.append({
+                        'id': message.id,
+                        'unread_count': message.unread_count,
+                        'is_read_by_all': message.is_read_by_all
+                    })
                 
                 # 🔑 멤버의 마지막 읽은 메시지 업데이트
                 member.last_read_message = latest_message
                 member.last_seen = timezone.now()
                 member.save()
+                
+                # ✅ WebSocket으로 실시간 브로드캐스트
+                if updated_messages:
+                    from channels.layers import get_channel_layer
+                    from asgiref.sync import async_to_sync
+                    
+                    channel_layer = get_channel_layer()
+                    async_to_sync(channel_layer.group_send)(
+                        f"chat_{room_name}",
+                        {
+                            "type": "messages_read_count_update",
+                            "updated_messages": updated_messages,
+                            "reader_username": user.username
+                        }
+                    )
+                    
+                    print(f"📖 {user.username}님이 {processed_count}개 메시지 읽음 - WebSocket 브로드캐스트 완료")
             
             return Response({
                 'success': True,
                 'message': f'{processed_count}개 메시지를 읽음 처리했습니다.',
-                'processed_count': processed_count
+                'processed_count': processed_count,
+                'updated_messages': updated_messages  # ✅ 디버깅용
             })
             
         except (ChatRoom.DoesNotExist, RoomMember.DoesNotExist):
@@ -651,7 +685,40 @@ class MarkAsReadAPIView(APIView):
                 'error': '방을 찾을 수 없습니다.'
             }, status=404)
         except Exception as e:
+            print(f"❌ 읽음 처리 오류: {e}")
+            import traceback
+            traceback.print_exc()
             return Response({
                 'success': False,
                 'error': str(e)
             }, status=500)
+
+# ✅ 새로운 API: 임시 나가기 (브라우저 닫기 등)
+class DisconnectRoomAPIView(APIView):
+    """방 연결 해제 API (임시 나가기)"""
+    
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request, room_name):
+        try:
+            room = ChatRoom.objects.get(name=room_name, is_active=True)
+            member = RoomMember.objects.get(room=room, user=request.user)
+            
+            # 실시간 접속 상태만 False로 변경
+            member.is_currently_in_room = False
+            member.last_seen = timezone.now()
+            member.save()
+            
+            online_count = RoomMember.objects.filter(room=room, is_currently_in_room=True).count()
+            
+            return Response({
+                "success": True,
+                "message": f"{request.user.username}님의 연결이 해제되었습니다.",
+                "online_members": online_count
+            })
+            
+        except (ChatRoom.DoesNotExist, RoomMember.DoesNotExist):
+            return Response({
+                "success": False,
+                "error": "방 또는 멤버를 찾을 수 없습니다."
+            }, status=404)

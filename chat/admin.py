@@ -32,9 +32,9 @@ class ChatRoomAdmin(admin.ModelAdmin):
 
 @admin.register(RoomMember)
 class RoomMemberAdmin(admin.ModelAdmin):
-    list_display = ['user', 'room', 'is_admin', 'joined_at']
+    list_display = ['user', 'room', 'is_admin', 'joined_at', 'last_seen', 'is_currently_in_room', 'last_read_message']
     list_filter = ['is_admin', 'joined_at']
-    search_fields = ['user__username', 'room__name', 'nickname']
+    search_fields = ['user__username', 'room__name', 'nickname', 'joined_at', 'last_seen', 'is_currently_in_room', 'last_read_message']
 
 
 @admin.register(ChatMessage)

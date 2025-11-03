@@ -18,7 +18,7 @@ function App() {
   const [myRooms, setMyRooms] = useState([]);
   const [stats, setStats] = useState({});
   const [currentRoom, setCurrentRoom] = useState('');
-  const [currentRoomInfo, setCurrentRoomInfo] = useState(null); // 현재 방 정보 추가
+  const [currentRoomInfo, setCurrentRoomInfo] = useState(null);
   const [roomName, setRoomName] = useState('');
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   
@@ -115,6 +115,71 @@ function App() {
       console.error('❌ 통계 로드 실패:', error);
     }
   }, []);
+
+  // 🔄 기존 메시지들의 읽음 수 업데이트 처리
+  const handleMessagesReadCountUpdate = useCallback((updatedMessages, readerUsername) => {
+    console.log('📖 읽음 수 업데이트 받음:', updatedMessages, '읽은 사람:', readerUsername);
+    
+    setMessages(prevMessages => {
+      const newMessages = prevMessages.map(msg => {
+        const updatedMsg = updatedMessages.find(um => um.id === msg.message_id);
+        if (updatedMsg) {
+          console.log(`📖 메시지 ${msg.message_id} 업데이트: ${msg.unreadCount} → ${updatedMsg.unread_count}`);
+          return {
+            ...msg,
+            unreadCount: updatedMsg.unread_count,
+            isReadByAll: updatedMsg.is_read_by_all
+          };
+        }
+        return msg;
+      });
+      
+      return newMessages;
+    });
+    
+    console.log(`📖 ${readerUsername}님이 메시지를 읽음 - ${updatedMessages.length}개 메시지 업데이트됨`);
+  }, []);
+
+  // 💬 일반 채팅 메시지 처리
+  const handleChatMessage = (data) => {
+    const newMessage = {
+      id: data.message_id || Date.now() + Math.random(),
+      message_id: data.message_id,
+      text: data.message,
+      author: data.username,
+      time: data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString(),
+      isSystem: false,
+      unreadCount: data.unread_count || 0,
+      isReadByAll: data.is_read_by_all || false,
+      userId: data.user_id
+    };
+    
+    setMessages(prev => [...prev, newMessage]);
+    
+    // 새 메시지 수신 시 읽음 처리
+    setTimeout(() => markAsRead(currentRoom), 100);
+  };
+
+  // 🔔 시스템 메시지 처리
+  const handleSystemMessage = (data, roomName) => {
+    const systemMessage = {
+      id: Date.now() + Math.random(),
+      text: data.message,
+      author: data.username,
+      time: new Date().toLocaleTimeString(),
+      isSystem: true,
+      unreadCount: 0,
+      isReadByAll: true,
+      userId: null
+    };
+    
+    setMessages(prev => [...prev, systemMessage]);
+    
+    // 입장/퇴장 시 방 정보 새로고침
+    if (data.message.includes('입장') || data.message.includes('퇴장')) {
+      setTimeout(() => fetchCurrentRoomInfo(roomName), 500);
+    }
+  };
 
   // 🔐 로그인
   const handleLogin = async () => {
@@ -241,6 +306,7 @@ function App() {
         if (messagesResponse.data) {
           const loadedMessages = messagesResponse.data.map(msg => ({
             id: msg.id,
+            message_id: msg.id,
             text: msg.content || msg.message,
             author: msg.username || 'Anonymous',
             time: new Date(msg.created_at).toLocaleTimeString(),
@@ -284,26 +350,23 @@ function App() {
           const data = JSON.parse(event.data);
           console.log('📨 메시지 수신:', data);
           
-          // 입장/퇴장 시스템 메시지일 때 방 정보 새로고침
-          if (data.type === 'system' && (data.message.includes('입장') || data.message.includes('퇴장'))) {
-            setTimeout(() => fetchCurrentRoomInfo(targetRoomName), 500);
+          // 🔄 기존 메시지들의 읽음 수 업데이트 처리
+          if (data.type === 'messages_read_count_update') {
+            handleMessagesReadCountUpdate(data.updated_messages, data.reader_username);
+            return;
           }
           
-          const newMessage = {
-            id: Date.now() + Math.random(),
-            text: data.message,
-            author: data.username || data.author || 'Anonymous',
-            time: new Date().toLocaleTimeString(),
-            isSystem: data.type === 'system',
-            unreadCount: data.unread_count || 0,
-            isReadByAll: data.is_read_by_all || false,
-            userId: data.user_id
-          };
+          // 💬 일반 채팅 메시지 처리
+          if (data.type === 'chat') {
+            handleChatMessage(data);
+            return;
+          }
           
-          setMessages(prev => [...prev, newMessage]);
-          
-          // 새 메시지 수신 시 읽음 처리
-          setTimeout(() => markAsRead(targetRoomName), 100);
+          // 🔔 시스템 메시지 처리 (입장/퇴장)
+          if (data.type === 'system') {
+            handleSystemMessage(data, targetRoomName);
+            return;
+          }
         };
         
         ws.onclose = () => {
@@ -465,13 +528,26 @@ function App() {
   };
 
   // 뒤로가기
-  const handleDisconnectRoom = () => {
-    // WebSocket 연결 해제
+  const handleDisconnectRoom = async () => {
+    const roomName = currentRoom; // 현재 방 이름 저장
+
+    try {
+      // ✅ 1. 서버에 연결 해제 알림 (is_currently_in_room = False)
+      if (roomName && isAuthenticated) {
+        await axios.post(`/api/rooms/${roomName}/disconnect/`);
+        console.log('🔌 서버에 연결 해제 알림 완료');
+      }
+    } catch (error) {
+      console.error('❌ 서버 연결 해제 알림 실패:', error);
+      // 서버 오류가 있어도 클라이언트 정리는 계속 진행
+    }
+
+    // ✅ 2. WebSocket 연결 해제
     if (socket) {
       socket.close();
     }
     
-    // 채팅 상태 초기화하여 방 목록으로 돌아가기
+    // ✅ 3. 채팅 상태 초기화하여 방 목록으로 돌아가기
     setCurrentRoom('');
     setCurrentRoomInfo(null);
     setMessages([]);
@@ -479,7 +555,7 @@ function App() {
     setSocket(null);
     setMessage('');
     
-    console.log('🔙 방 목록으로 돌아가기 (서버 레코드 유지)');
+    console.log('🔙 방 목록으로 돌아가기 (서버 연결 해제 + 클라이언트 정리)');
   };
 
   // ⌨️ 키보드 이벤트
