@@ -5,45 +5,52 @@ from channels.db import database_sync_to_async
 from django.contrib.auth.models import User
 from .models import ChatMessage, ChatRoom, RoomMember
 
+
 class ChatConsumer(AsyncWebsocketConsumer):
+    """
+    실시간 채팅 WebSocket Consumer
+    메시지 송수신, 입퇴장 알림, 읽음 처리를 담당
+    """
+    
     async def connect(self):
+        """WebSocket 연결 설정"""
         self.room_name = self.scope["url_route"]["kwargs"]["room_name"]
         self.room_group_name = f"chat_{self.room_name}"
         self.username = None
 
-        # Join room group
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
 
     async def disconnect(self, close_code):
+        """WebSocket 연결 해제"""
         if hasattr(self, 'username') and self.username:
             await self.update_online_status(False)
-        # Leave room group
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
-    # 메시지 수신 처리
     async def receive(self, text_data):
+        """클라이언트로부터 메시지 수신 처리"""
         try:
-            text_data_json = json.loads(text_data)
-            username = text_data_json.get("username")
-            message_type = text_data_json.get("type")
+            data = json.loads(text_data)
+            username = data.get("username")
+            message_type = data.get("type")
             
             if message_type == 'user_join':
                 await self.handle_user_join(username)
             elif message_type == 'user_leave':
                 await self.handle_user_leave(username)
             elif message_type == 'text':
-                await self.handle_text_message(username, text_data_json.get("message", ""))
+                await self.handle_text_message(username, data.get("message", ""))
             elif message_type == 'mark_read':
-                await self.handle_mark_read(username, text_data_json.get('message_id'))
+                await self.handle_mark_read(username, data.get('message_id'))
                 
         except json.JSONDecodeError:
             print("❌ JSON 파싱 오류")
         except Exception as e:
             print(f"❌ 메시지 처리 오류: {e}")
 
-    # 사용자 입장 처리
+    # 메시지 타입별 핸들러
     async def handle_user_join(self, username):
+        """사용자 입장 처리"""
         self.username = username
         await self.update_online_status(True)
         
@@ -72,8 +79,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
             )
 
-    # 사용자 퇴장 처리
     async def handle_user_leave(self, username):
+        """사용자 퇴장 처리"""
         message = f"{username}님이 퇴장했습니다."
         await self.save_message(username, message, "system")
         await self.channel_layer.group_send(
@@ -85,8 +92,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }
         )
 
-    # 텍스트 메시지 처리
     async def handle_text_message(self, username, message):
+        """텍스트 메시지 처리"""
         self.username = username
         message_data = await self.save_message_with_read_info(username, message, "text")
         
@@ -104,13 +111,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
             )
 
-    # 읽음 처리
     async def handle_mark_read(self, username, message_id):
+        """읽음 처리"""
         if message_id:
             await self.mark_message_read(username, message_id)
 
-    # 채팅 메시지 핸들러
+    # WebSocket 이벤트 핸들러
     async def chat_message(self, event):
+        """채팅 메시지 전송"""
         await self.send(text_data=json.dumps({
             "message": event["message"], 
             "username": event["username"],
@@ -122,24 +130,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "timestamp": timezone.now().isoformat()
         }))
     
-    # 시스템 메시지 핸들러
     async def system_message(self, event):
+        """시스템 메시지 전송"""
         await self.send(text_data=json.dumps({
             "message": event["message"], 
             "username": event["username"],
             "type": "system"
         }))
 
-    # 메시지 읽음 수 업데이트 핸들러
     async def messages_read_count_update(self, event):
+        """메시지 읽음 수 업데이트 전송"""
         await self.send(text_data=json.dumps({
             "type": "messages_read_count_update",
             "updated_messages": event["updated_messages"],
-            "reader_username": event["reader_username"]
+            "reader_username": event.get("reader_username")
         }))
     
-    # === 데이터베이스 함수들 ===
-    
+    # 데이터베이스 작업
     @database_sync_to_async
     def save_message(self, username, message, message_type):
         """기본 메시지 저장"""
