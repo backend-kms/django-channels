@@ -1,28 +1,15 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
-
-# Create your models here.
-
+from django.utils.translation import gettext_lazy as _
 
 class UserProfile(models.Model):
-    """사용자 프로필 확장"""
-
-    user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name="profile", verbose_name="사용자"
-    )
-    avatar = models.ImageField(
-        upload_to="avatars/", blank=True, null=True, verbose_name="프로필 사진"
-    )
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile", verbose_name="사용자")
+    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True, verbose_name="프로필 사진")
     bio = models.TextField(max_length=500, blank=True, verbose_name="자기소개")
     is_online = models.BooleanField(default=False, verbose_name="온라인 상태")
-    last_activity = models.DateTimeField(
-        default=timezone.now, verbose_name="마지막 활동"
-    )
-    preferred_language = models.CharField(
-        max_length=10, default="ko", verbose_name="선호 언어"
-    )
-
+    last_activity = models.DateTimeField(default=timezone.now, verbose_name="마지막 활동")
+    preferred_language = models.CharField(max_length=10, default="ko", verbose_name="선호 언어")
     class Meta:
         verbose_name = "사용자 프로필"
         verbose_name_plural = "사용자 프로필들"
@@ -34,14 +21,7 @@ class UserProfile(models.Model):
 class ChatRoom(models.Model):
     name = models.CharField(max_length=50, unique=True, verbose_name="방 이름")
     description = models.TextField(max_length=200, blank=True, verbose_name="방 설명")
-    created_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="created_rooms",
-        verbose_name="방 생성자",
-    )
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="created_rooms", verbose_name="방 생성자")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="수정일시")
     is_active = models.BooleanField(default=True, verbose_name="활성 상태")
@@ -66,32 +46,14 @@ class ChatRoom(models.Model):
 class RoomMember(models.Model):
     """채팅방 멤버 관리"""
 
-    room = models.ForeignKey(
-        ChatRoom,
-        on_delete=models.CASCADE,
-        related_name="members",
-        verbose_name="채팅방",
-    )
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name="joined_rooms",
-        verbose_name="사용자",
-    )
+    room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE, related_name="members", verbose_name="채팅방")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="joined_rooms", verbose_name="사용자")
     is_admin = models.BooleanField(default=False, verbose_name="관리자 권한")
     nickname = models.CharField(max_length=30, blank=True, verbose_name="방 내 닉네임")
-    
     joined_at = models.DateTimeField(auto_now_add=True, verbose_name="입장일시")
     last_seen = models.DateTimeField(default=timezone.now, verbose_name="방 마지막 접속")
     is_currently_in_room = models.BooleanField(default=False, verbose_name="현재 방에 접속 중")
-    last_read_message = models.ForeignKey(
-        "ChatMessage",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name="마지막으로 읽은 메시지",
-    )
-
+    last_read_message = models.ForeignKey("ChatMessage", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="마지막으로 읽은 메시지")
     class Meta:
         verbose_name = "방 멤버"
         verbose_name_plural = "방 멤버들"
@@ -112,39 +74,17 @@ class ChatMessage(models.Model):
         ("system", "시스템 메시지"),
     ]
 
-    room = models.ForeignKey(
-        ChatRoom,
-        on_delete=models.CASCADE,
-        related_name="messages",
-        verbose_name="채팅방",
-    )
-    user = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="chat_messages",
-        verbose_name="작성자",
-    )
+    room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE, related_name="messages", verbose_name="채팅방")
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="chat_messages", verbose_name="작성자")
     content = models.TextField(verbose_name="메시지 내용")
-    message_type = models.CharField(
-        max_length=10, choices=MESSAGE_TYPES, default="text", verbose_name="메시지 타입"
-    )
+    message_type = models.CharField(max_length=10, choices=MESSAGE_TYPES, default="text", verbose_name="메시지 타입")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="작성일시")
     edited_at = models.DateTimeField(null=True, blank=True, verbose_name="수정일시")
     is_deleted = models.BooleanField(default=False, verbose_name="삭제 여부")
     file_url = models.URLField(blank=True, verbose_name="파일 URL")
-    reply_to = models.ForeignKey(
-        "self",
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="replies",
-        verbose_name="답장 대상",
-    )
+    reply_to = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, related_name="replies", verbose_name="답장 대상")
     unread_count = models.PositiveIntegerField(default=0, verbose_name="안 읽은 수")
     total_members_at_time = models.PositiveIntegerField(default=0, verbose_name="메시지 전송 당시 총 멤버 수")
-
     class Meta:
         verbose_name = "채팅 메시지"
         verbose_name_plural = "채팅 메시지들"
@@ -213,3 +153,27 @@ class ChatMessage(models.Model):
                 member.save(update_fields=['last_read_message'])
             except RoomMember.DoesNotExist:
                 pass
+
+class MessageReaction(models.Model):
+    """메세지 이모지 반응 모델"""
+    REACTION_CHOICES = [
+        ("like", "like"),
+        ("good", "good"),
+        ("check", "check"),
+    ]
+    user = models.ForeignKey( User, on_delete=models.CASCADE, related_name="user_reactions", verbose_name="사용자")
+    message = models.ForeignKey(ChatMessage, on_delete=models.CASCADE, related_name="message_reactions", verbose_name="메시지")
+    reaction_type = models.CharField(max_length=50, choices=REACTION_CHOICES, verbose_name="반응유형")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="반응일시")
+
+    class Meta:
+        verbose_name = "메시지 반응"
+        verbose_name_plural = "메시지 반응들"
+        unique_together = ["user", "message", "reaction_type"]
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=['message', 'reaction_type']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} reacted {self.reaction_type} to message {self.message.id}"
