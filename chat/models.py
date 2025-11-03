@@ -112,10 +112,12 @@ class RoomMember(models.Model):
         related_name="joined_rooms",
         verbose_name="사용자",
     )
-    joined_at = models.DateTimeField(auto_now_add=True, verbose_name="입장일시")
-    last_seen = models.DateTimeField(default=timezone.now, verbose_name="마지막 접속")
     is_admin = models.BooleanField(default=False, verbose_name="관리자 권한")
     nickname = models.CharField(max_length=30, blank=True, verbose_name="방 내 닉네임")
+    
+    joined_at = models.DateTimeField(auto_now_add=True, verbose_name="입장일시")
+    last_seen = models.DateTimeField(default=timezone.now, verbose_name="방 마지막 접속")
+    is_currently_in_room = models.BooleanField(default=False, verbose_name="현재 방에 접속 중")
     last_read_message = models.ForeignKey(
         "ChatMessage",
         on_delete=models.SET_NULL,
