@@ -520,7 +520,66 @@ class LeaveRoomAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # 멤버 삭제
+        try:
+            member = RoomMember.objects.get(room=room, user=request.user)
+            
+            # ✅ 나가기 전 안 읽은 메시지들을 모두 읽음 처리
+            last_read_time = member.last_read_message.created_at if member.last_read_message else timezone.make_aware(datetime.min)
+            unread_messages = ChatMessage.objects.filter(
+                room=room,
+                created_at__gt=last_read_time,
+                user__isnull=False,  # 시스템 메시지 제외
+                is_deleted=False
+            ).order_by('created_at')
+            
+            processed_count = 0
+            updated_messages = []
+            
+            if unread_messages.exists():
+                latest_message = unread_messages.latest('created_at')
+                
+                # 각 메시지 읽음 처리
+                for message in unread_messages:
+                    if message.mark_as_read_by(request.user):
+                        processed_count += 1
+                    
+                    message.refresh_from_db()
+                    updated_messages.append({
+                        'id': message.id,
+                        'unread_count': message.unread_count,
+                        'is_read_by_all': message.is_read_by_all
+                    })
+                
+                # 멤버의 마지막 읽은 메시지 업데이트
+                member.last_read_message = latest_message
+                member.last_seen = timezone.now()
+                member.save()
+                
+                # WebSocket으로 실시간 브로드캐스트 (나가기 전에)
+                if updated_messages:
+                    from channels.layers import get_channel_layer
+                    from asgiref.sync import async_to_sync
+                    
+                    channel_layer = get_channel_layer()
+                    async_to_sync(channel_layer.group_send)(
+                        f"chat_{room_name}",
+                        {
+                            "type": "messages_read_count_update",
+                            "updated_messages": updated_messages,
+                            "reader_username": request.user.username
+                        }
+                    )
+                    
+                    print(f"📖 {request.user.username}님이 나가기 전 {processed_count}개 메시지 읽음 처리")
+
+        except RoomMember.DoesNotExist:
+            # 이미 방에 없는 경우
+            return Response(
+                {"success": False, "detail": "방에 참여하지 않은 상태입니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # ✅ 멤버 완전 삭제
         deleted_count, _ = RoomMember.objects.filter(
             room=room, user=request.user
         ).delete()
@@ -537,6 +596,7 @@ class LeaveRoomAPIView(APIView):
                     "success": True,
                     "message": f"{request.user.username}님이 퇴장했습니다. 방이 비활성화되었습니다.",
                     "room_deactivated": True,
+                    "messages_read": processed_count
                 })
             else:
                 # 첫 번째 남은 멤버를 관리자로 승격
@@ -550,6 +610,7 @@ class LeaveRoomAPIView(APIView):
                     "message": f"{request.user.username}님이 퇴장했습니다.",
                     "remaining_members": member_count,
                     "room_deactivated": False,
+                    "messages_read": processed_count  # ✅ 읽음 처리된 메시지 수 반환
                 })
         else:
             return Response(
