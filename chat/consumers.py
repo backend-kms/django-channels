@@ -146,6 +146,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "reader_username": event.get("reader_username")
         }))
     
+    async def reaction_update(self, event):
+        await self.send(text_data=json.dumps({
+        'type': 'reaction_update',
+        'message_id': event['message_id'],
+        'action': event['action'],
+        'reaction_type': event['reaction_type'],
+        'reaction_counts': event['reaction_counts'],
+        'user': event['user']
+    }))
+
     # 데이터베이스 작업
     @database_sync_to_async
     def save_message(self, username, message, message_type):

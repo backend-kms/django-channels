@@ -810,6 +810,28 @@ class CreateReactionAPIView(APIView):
                 ).count()
                 reaction_counts[choice_key] = count
             
+            # WebSocket으로 실시간 업데이트 브로드캐스트
+            try:
+                from channels.layers import get_channel_layer
+                from asgiref.sync import async_to_sync
+                
+                channel_layer = get_channel_layer()
+                room_name = message.room.name
+                
+                async_to_sync(channel_layer.group_send)(
+                    f"chat_{room_name}",
+                    {
+                        "type": "reaction_update",
+                        "message_id": message_id,
+                        "action": action,
+                        "reaction_type": reaction_type,
+                        "reaction_counts": reaction_counts,
+                        "user": request.user.username
+                    }
+                )
+            except Exception as e:
+                print(f"❌ WebSocket 브로드캐스트 오류: {e}")
+                
             return JsonResponse({
             'success': True,
             'action': action,

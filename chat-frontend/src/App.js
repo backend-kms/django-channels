@@ -7,6 +7,104 @@ const API_BASE_URL = 'http://localhost:8000/chat';
 axios.defaults.baseURL = API_BASE_URL;
 axios.defaults.withCredentials = false;
 
+// 메시지 반응 컴포넌트
+const MessageReactions = ({ messageId, currentUser, reactions: initialReactions }) => {
+  const [reactions, setReactions] = useState({
+    like: 0,
+    good: 0,
+    check: 0,
+    ...initialReactions
+  });
+  const [userReaction, setUserReaction] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // 반응 이모지 매핑
+  const reactionEmojis = {
+    like: '❤️',
+    good: '👍',
+    check: '✅'
+  };
+
+  useEffect(() => {
+    if (initialReactions) {
+      setReactions(prev => ({
+        like: 0,
+        good: 0,
+        check: 0,
+        ...initialReactions
+      }));
+    }
+  }, [initialReactions]);
+
+  // 반응 데이터 로드
+  const loadReactions = async () => {
+    try {
+      const response = await axios.get(`/api/messages/${messageId}/reactions/`);
+      if (response.data) {
+        setReactions(response.data.reaction_counts);
+        setUserReaction(response.data.user_reaction);
+      }
+    } catch (error) {
+      console.error('반응 로드 실패:', error);
+    }
+  };
+
+  // 반응 토글
+  const handleReactionClick = async (reactionType) => {
+    if (isLoading) return;
+
+    setIsLoading(true);
+    console.log('🎯 API 호출:', `/api/messages/${messageId}/reaction/`);
+
+    try {
+      const response = await axios.post(`/api/messages/${messageId}/reaction/`, {
+        reaction_type: reactionType
+      });
+
+      console.log('✅ API 응답:', response.data);
+      
+      if (response.data.success) {
+        setReactions(response.data.reaction_counts);
+        setUserReaction(response.data.user_reaction);
+      }
+    } catch (error) {
+      console.error('반응 처리 실패:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 컴포넌트 마운트 시 반응 데이터 로드
+  useEffect(() => {
+    loadReactions();
+  }, [messageId]);
+
+  return (
+    <div className="message-reactions" data-message-id={messageId}>
+      <div className="reaction-buttons">
+        {Object.keys(reactionEmojis).map(reactionType => (
+          <button
+            key={reactionType}
+            className={`reaction-btn ${userReaction === reactionType ? 'active' : ''}`}
+            onClick={() => handleReactionClick(reactionType)}
+            disabled={isLoading}
+            title={`${reactionEmojis[reactionType]} ${reactionType}`}
+          >
+            <span className="reaction-emoji">
+              {reactionEmojis[reactionType]}
+            </span>
+            {reactions[reactionType] > 0 && (
+              <span className="reaction-count">
+                {reactions[reactionType]}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 function App() {
   // 🔑 인증 상태
   const [user, setUser] = useState(null);
@@ -140,6 +238,24 @@ function App() {
     console.log(`📖 ${readerUsername}님이 메시지를 읽음 - ${updatedMessages.length}개 메시지 업데이트됨`);
   }, []);
 
+  // 👍 반응 업데이트 핸들러
+  const handleReactionUpdate = useCallback((data) => {
+    console.log('👍 반응 업데이트 수신:', data);
+    
+    setMessages(prevMessages => {
+      return prevMessages.map(msg => {
+        if (msg.message_id === data.message_id) {
+          return {
+            ...msg,
+            reactions: data.reaction_counts,
+            lastReactionUpdate: Date.now()
+          };
+        }
+        return msg;
+      });
+    });
+  }, []);
+
   // 💬 일반 채팅 메시지 처리
   const handleChatMessage = (data) => {
     const newMessage = {
@@ -151,7 +267,8 @@ function App() {
       isSystem: false,
       unreadCount: data.unread_count || 0,
       isReadByAll: data.is_read_by_all || false,
-      userId: data.user_id
+      userId: data.user_id,
+      reactions: {}
     };
     
     setMessages(prev => [...prev, newMessage]);
@@ -170,7 +287,8 @@ function App() {
       isSystem: true,
       unreadCount: 0,
       isReadByAll: true,
-      userId: null
+      userId: null,
+      reactions: {}
     };
     
     setMessages(prev => [...prev, systemMessage]);
@@ -313,7 +431,8 @@ function App() {
             isSystem: msg.message_type === 'system',
             unreadCount: msg.unread_count || 0,
             isReadByAll: msg.is_read_by_all || false,
-            userId: msg.user_id
+            userId: msg.user_id,
+            reactions: {}
           }));
           setMessages(loadedMessages);
 
@@ -365,6 +484,12 @@ function App() {
           // 🔔 시스템 메시지 처리 (입장/퇴장)
           if (data.type === 'system') {
             handleSystemMessage(data, targetRoomName);
+            return;
+          }
+
+          // 👍 반응 업데이트 처리
+          if (data.type === 'reaction_update') {
+            handleReactionUpdate(data);
             return;
           }
         };
@@ -727,6 +852,7 @@ function App() {
                 msg.isSystem ? 'system-message' : 
                 msg.author === user?.username ? 'my-message' : 'other-message'
               }`}
+              data-message-id={msg.message_id}
             >
               <div className="message-header">
                 <span className="author">{msg.author}</span>
@@ -738,6 +864,12 @@ function App() {
                 <div className="message-wrapper my-wrapper">
                   <div className="message-bubble">
                     <div className="message-content">{msg.text}</div>
+                    {/* 내 메시지에도 반응 기능 추가 */}
+                    <MessageReactions 
+                      messageId={msg.message_id}
+                      currentUser={user?.username}
+                      reactions={msg.reactions}
+                    />
                   </div>
                   {/* 내 메시지의 읽음 표시 */}
                   <div className="read-status">
@@ -751,6 +883,12 @@ function App() {
                 <div className="message-wrapper other-wrapper">
                   <div className="message-bubble">
                     <div className="message-content">{msg.text}</div>
+                    {/* 다른 사람 메시지에도 반응 기능 추가 */}
+                    <MessageReactions 
+                      messageId={msg.message_id}
+                      currentUser={user?.username}
+                      reactions={msg.reactions}
+                    />
                   </div>
                   {/* 다른 사람 메시지의 읽음 표시 */}
                   <div className="read-status">
