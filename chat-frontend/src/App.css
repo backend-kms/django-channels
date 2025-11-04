@@ -368,7 +368,7 @@ section {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 0.8rem;
-  margin-top: 1rem
+  margin-top: 1rem;
 }
 
 .room-card {
@@ -519,11 +519,12 @@ section {
   margin-bottom: 0.5rem;
 }
 
-/* 메시지 스타일 */
+/* ========== 메시지 스타일 (완전 수정) ========== */
 .message {
   margin-bottom: 1rem;
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
 
 .message-header {
@@ -548,18 +549,28 @@ section {
   font-size: 0.8rem;
 }
 
-/* 메시지 wrapper */
+/* 메시지 wrapper: 버블 + 읽음 표시를 한 줄에 */
 .message-wrapper {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  max-width: 80%;
+  max-width: 100%;
 }
 
-/* 내 메시지 (우측 정렬) */
+/* 메시지 콘텐츠 컨테이너 */
+.message-content-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+/* 내 메시지 전체를 오른쪽 정렬 */
 .message.my-message {
   align-items: flex-end;
   justify-content: flex-end;
+  align-self: flex-end;
+  margin-bottom: 2rem;
 }
 
 .message.my-message .message-header {
@@ -570,38 +581,41 @@ section {
   color: #ccc;
 }
 
-.my-wrapper {
+/* 내 메시지 wrapper - 오른쪽 정렬 */
+.message.my-message .message-wrapper {
   flex-direction: row-reverse;
-  margin-left: auto;
+  justify-content: flex-end;
 }
 
 .message.my-message .message-bubble {
   background: #007bff;
   color: white;
-  border-radius: 10px 10px 10px 10px;
-  padding: 0.5rem 0.8rem;
+  border-radius: 18px 18px 4px 18px;
+  padding: 0.6rem 0.8rem;
   word-break: break-word;
 }
 
-/* 다른 사람 메시지 (좌측 정렬) */
+/* 다른 사람 메시지 전체를 왼쪽 정렬 */
 .message.other-message {
   align-items: flex-start;
   justify-content: flex-start;
+  align-self: flex-start;
 }
 
 .message.other-message .author {
   color: #4ade80;
 }
 
-.other-wrapper {
+/* 다른 사람 메시지 wrapper - 왼쪽 정렬 */
+.message.other-message .message-wrapper {
   flex-direction: row;
-  margin-right: auto;
+  justify-content: flex-start;
 }
 
 .message.other-message .message-bubble {
   background: #f1f3f4;
   color: #333;
-  border-radius: 12px 12px 12px 4px;
+  border-radius: 18px 18px 18px 4px;
   padding: 0.6rem 0.8rem;
   word-break: break-word;
   border: 1px solid #e0e0e0;
@@ -611,7 +625,9 @@ section {
 .message.system-message {
   align-items: center;
   text-align: center;
-  margin: 1rem 0;
+  margin: 1rem auto;
+  max-width: 80%;
+  align-self: center;
 }
 
 .system-message .message-header {
@@ -628,11 +644,11 @@ section {
   display: inline-block;
 }
 
-/* 읽음 표시 */
+/* 읽음 표시 - wrapper 안에서 메시지 옆에 */
 .read-status {
   display: flex;
   align-items: flex-end;
-  font-size: 8.5px;
+  font-size: 9px;
   line-height: 1;
   min-width: 20px;
   padding-bottom: 3px;
@@ -649,6 +665,108 @@ section {
   text-align: center;
   display: inline-block;
   white-space: nowrap;
+}
+
+/* 반응은 메시지 버블 바로 아래(별도 줄) */
+.message-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+/* 내 메시지의 반응은 오른쪽 정렬 */
+.my-message .message-reactions {
+  justify-content: flex-end;
+}
+
+/* 다른 사람 메시지의 반응은 왼쪽 정렬 */
+.other-message .message-reactions {
+  justify-content: flex-start;
+}
+
+/* 반응 버튼들의 컨테이너 */
+.reaction-buttons {
+  display: flex;
+  gap: 4px;
+  margin-top: 0.2rem;
+}
+
+/* 개별 반응 버튼 - 카카오톡 스타일의 작은 알약 */
+.reaction-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  background: rgba(60, 60, 60, 0.7);
+  border: 1px solid rgba(80, 80, 80, 0.8);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 12px;
+  min-height: 22px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.reaction-btn:hover {
+  background: rgba(80, 80, 80, 0.8);
+  border-color: #999;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* 활성화된 반응 (내가 누른 것) */
+.reaction-btn.active {
+  background: linear-gradient(135deg, #007bff, #0056b3);
+  border-color: #0056b3;
+  color: white;
+  box-shadow: 0 2px 6px rgba(0, 123, 255, 0.3);
+}
+
+.reaction-btn.active:hover {
+  background: linear-gradient(135deg, #0056b3, #003d82);
+  box-shadow: 0 3px 8px rgba(0, 123, 255, 0.4);
+}
+
+/* 반응 이모지 */
+.reaction-emoji {
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* 반응 개수 */
+.reaction-count {
+  font-size: 10px;
+  font-weight: 600;
+  color: #ccc;
+  min-width: 8px;
+  text-align: center;
+  line-height: 1;
+}
+
+.reaction-btn.active .reaction-count {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* 반응이 0개일 때는 숨기기 */
+.reaction-btn .reaction-count:empty {
+  display: none;
+}
+
+/* 반응 애니메이션 */
+@keyframes reactionBounce {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+.reaction-btn.just-clicked {
+  animation: reactionBounce 0.3s ease;
+}
+
+/* 시스템 메시지는 반응 없음 */
+.system-message .message-reactions {
+  display: none;
 }
 
 /* 메시지 입력 */
@@ -772,5 +890,21 @@ section {
   .message.my-message .message-bubble,
   .message.other-message .message-bubble {
     max-width: 85%;
+  }
+  
+  .reaction-btn {
+    padding: 1px 6px;
+    font-size: 11px;
+    min-height: 20px;
+    border-radius: 10px;
+  }
+  
+  .reaction-emoji {
+    font-size: 11px;
+  }
+  
+  .reaction-count {
+    font-size: 9px;
+    min-width: 6px;
   }
 }

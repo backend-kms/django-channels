@@ -62,7 +62,7 @@ const MessageReactions = ({ messageId, currentUser, reactions: initialReactions 
       });
 
       console.log('✅ API 응답:', response.data);
-      
+
       if (response.data.success) {
         setReactions(response.data.reaction_counts);
         setUserReaction(response.data.user_reaction);
@@ -841,72 +841,63 @@ function App() {
 
         <div className="chat-messages">
           {messages.length === 0 ? (
-            <div className="empty-state">
-              <span className="empty-icon">🌟</span>
-              <p>첫 번째 메시지를 보내보세요!</p>
-            </div>
-          ) : messages.map(msg => (
-            <div 
-              key={msg.id} 
-              className={`message ${
-                msg.isSystem ? 'system-message' : 
-                msg.author === user?.username ? 'my-message' : 'other-message'
-              }`}
-              data-message-id={msg.message_id}
-            >
-              <div className="message-header">
-                <span className="author">{msg.author}</span>
-                <span className="time">{msg.time}</span>
+  <div className="empty-state">
+    <span className="empty-icon">🌟</span>
+    <p>첫 번째 메시지를 보내보세요!</p>
+  </div>
+    ) : messages.map(msg => (
+      <div 
+        key={msg.id} 
+        className={`message ${
+          msg.isSystem ? 'system-message' : 
+          msg.author === user?.username ? 'my-message' : 'other-message'
+        }`}
+        data-message-id={msg.message_id}
+      >
+        <div className="message-header">
+          <span className="author">{msg.author}</span>
+          <span className="time">{msg.time}</span>
+        </div>
+        
+        {!msg.isSystem ? (
+          <>
+            {/* 메시지 버블과 읽음 표시 */}
+            <div className="message-wrapper">
+              <div className="message-bubble">
+                <div className="message-content">{msg.text}</div>
               </div>
               
-              {/* 내 메시지는 우측 정렬 + 읽음 표시를 왼쪽에 */}
-              {!msg.isSystem && msg.author === user?.username ? (
-                <div className="message-wrapper my-wrapper">
-                  <div className="message-bubble">
-                    <div className="message-content">{msg.text}</div>
-                    {/* 내 메시지에도 반응 기능 추가 */}
-                    <MessageReactions 
-                      messageId={msg.message_id}
-                      currentUser={user?.username}
-                      reactions={msg.reactions}
-                    />
-                  </div>
-                  {/* 내 메시지의 읽음 표시 */}
-                  <div className="read-status">
-                    {msg.unreadCount > 0 && (
-                      <span className="unread-count">{msg.unreadCount}</span>
-                    )}
-                  </div>
-                </div>
-              ) : !msg.isSystem ? (
-                /* 다른 사람 메시지는 좌측 정렬 + 읽음 표시를 오른쪽에 */
-                <div className="message-wrapper other-wrapper">
-                  <div className="message-bubble">
-                    <div className="message-content">{msg.text}</div>
-                    {/* 다른 사람 메시지에도 반응 기능 추가 */}
-                    <MessageReactions 
-                      messageId={msg.message_id}
-                      currentUser={user?.username}
-                      reactions={msg.reactions}
-                    />
-                  </div>
-                  {/* 다른 사람 메시지의 읽음 표시 */}
-                  <div className="read-status">
-                    {msg.isReadByAll ? (
-                      <span className="read-all"></span>
-                    ) : msg.unreadCount > 0 ? (
-                      <span className="unread-count">{msg.unreadCount}</span>
-                    ) : null}
-                  </div>
-                </div>
-              ) : (
-                /* 시스템 메시지는 읽음 표시 없음 */
-                <div className="message-bubble">
-                  <div className="message-content">{msg.text}</div>
-                </div>
-              )}
+              {/* 읽음 표시 - 버블 옆에 */}
+              <div className="read-status">
+                {msg.author === user?.username ? (
+                  msg.unreadCount > 0 && (
+                    <span className="unread-count">{msg.unreadCount}</span>
+                  )
+                ) : (
+                  msg.isReadByAll ? (
+                    <span className="read-all"></span>
+                  ) : msg.unreadCount > 0 ? (
+                    <span className="unread-count">{msg.unreadCount}</span>
+                  ) : null
+                )}
+              </div>
             </div>
-          ))}
+            
+            {/* 반응 버튼들 - 완전히 아래에 별도로 */}
+            <MessageReactions 
+              messageId={msg.message_id}
+              currentUser={user?.username}
+              reactions={msg.reactions}
+            />
+          </>
+        ) : (
+          /* 시스템 메시지 */
+          <div className="message-bubble">
+            <div className="message-content">{msg.text}</div>
+          </div>
+        )}
+      </div>
+    ))}
           <div ref={messagesEndRef} />
         </div>
 
