@@ -2,12 +2,16 @@ from django.contrib import admin
 
 # Register your models here.
 from django.contrib import admin
-from .models import ChatRoom, RoomMember, ChatMessage, UserProfile
+from .models import ChatRoom, MessageReaction, RoomMember, ChatMessage, UserProfile
 
-
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ['user', 'is_online', 'last_activity', 'preferred_language']
+    list_filter = ['is_online', 'preferred_language', 'last_activity']
+    search_fields = ['user__username', 'bio']
 @admin.register(ChatRoom)
 class ChatRoomAdmin(admin.ModelAdmin):
-    list_display = ['name', 'description','is_active', 'created_at']
+    list_display = ['id', 'name', 'description','is_active', 'created_at']
     list_filter = ['is_active', 'is_private', 'created_at']
     search_fields = ['name', 'description']
     readonly_fields = ['created_at', 'updated_at','total_messages']
@@ -32,25 +36,27 @@ class ChatRoomAdmin(admin.ModelAdmin):
 
 @admin.register(RoomMember)
 class RoomMemberAdmin(admin.ModelAdmin):
-    list_display = ['user', 'room', 'is_admin', 'joined_at', 'last_seen', 'is_currently_in_room', 'last_read_message']
+    list_display = ['id', 'user', 'room', 'is_admin', 'joined_at', 'last_seen', 'is_currently_in_room', 'last_read_message']
     list_filter = ['is_admin', 'joined_at']
     search_fields = ['user__username', 'room__name', 'nickname', 'joined_at', 'last_seen', 'is_currently_in_room', 'last_read_message']
 
 
 @admin.register(ChatMessage)
 class ChatMessageAdmin(admin.ModelAdmin):
-    list_display = ['user', 'room', 'content_preview', 'message_type', 'created_at']
+    list_display = ['id', 'user', 'room', 'content_preview', 'message_type', 'created_at']
     list_filter = ['message_type', 'is_deleted', 'created_at']
     search_fields = ['user__username', 'room__name', 'content']
     readonly_fields = ['created_at', 'edited_at']
+    ordering = ['-created_at']
     
     def content_preview(self, obj):
         return obj.content[:50] + "..." if len(obj.content) > 50 else obj.content
     content_preview.short_description = "내용 미리보기"
 
 
-@admin.register(UserProfile)
-class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ['user', 'is_online', 'last_activity', 'preferred_language']
-    list_filter = ['is_online', 'preferred_language', 'last_activity']
-    search_fields = ['user__username', 'bio']
+@admin.register(MessageReaction)
+class MessageReactionAdmin(admin.ModelAdmin):
+    list_display = ['id', 'message', 'user', 'reaction_type', 'created_at']
+    list_filter = ['reaction_type', 'created_at']
+    search_fields = ['message__id', 'user__username', 'reaction_type']
+    ordering = ['-created_at']

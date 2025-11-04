@@ -1,5 +1,6 @@
 from datetime import datetime
-from django.shortcuts import render
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, render
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -11,7 +12,7 @@ from chat.serializers import (
     LoginRequestSerializer,
     LoginResponseSerializer,
 )
-from .models import ChatRoom, ChatMessage, RoomMember, UserProfile
+from .models import ChatRoom, ChatMessage, MessageReaction, RoomMember, UserProfile
 from django.utils import timezone
 from django.contrib.auth import authenticate
 from drf_spectacular.utils import extend_schema
@@ -75,14 +76,14 @@ class LoginAPIView(APIView):
                 })
             else:
                 return Response(
-                    {"success": False, "error": "아이디 또는 비밀번호가 틀렸습니다."},
+                    {"success": False, "detail": "아이디 또는 비밀번호가 틀렸습니다."},
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
 
         except Exception as e:
             print(f"❌ 로그인 오류: {e}")
             return Response(
-                {"success": False, "error": str(e)},
+                {"success": False, "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -119,7 +120,7 @@ class LogoutAPIView(APIView):
         except Exception as e:
             print(f"❌ 로그아웃 오류: {e}")
             return Response(
-                {"success": False, "error": str(e)},
+                {"success": False, "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -150,7 +151,7 @@ class UserProfileAPIView(APIView):
         except Exception as e:
             print(f"❌ 프로필 조회 오류: {e}")
             return Response(
-                {"success": False, "error": str(e)},
+                {"success": False, "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -206,7 +207,7 @@ class RoomListAPIView(APIView):
         except Exception as e:
             print(f"❌ 방 목록 오류: {e}")
             return Response(
-                {"success": False, "error": str(e)},
+                {"success": False, "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -261,7 +262,7 @@ class MyRoomsAPIView(APIView):
         except Exception as e:
             print(f"❌ 내 방 목록 오류: {e}")
             return Response(
-                {"success": False, "error": str(e)},
+                {"success": False, "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -295,13 +296,13 @@ class RoomCreateAPIView(APIView):
             # 방 이름 검증
             if not room_name:
                 return Response(
-                    {"success": False, "error": "방 이름을 입력해주세요."},
+                    {"success": False, "detail": "방 이름을 입력해주세요."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
             if ChatRoom.objects.filter(name=room_name, is_active=True).exists():
                 return Response(
-                    {"success": False, "error": "이미 존재하는 방 이름입니다."},
+                    {"success": False, "detail": "이미 존재하는 방 이름입니다."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -337,7 +338,7 @@ class RoomCreateAPIView(APIView):
         except Exception as e:
             print(f"❌ 방 생성 오류: {e}")
             return Response(
-                {"success": False, "error": str(e)},
+                {"success": False, "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -355,14 +356,14 @@ class RoomDeleteAPIView(APIView):
                 room = ChatRoom.objects.get(id=room_id, is_active=True)
             except ChatRoom.DoesNotExist:
                 return Response(
-                    {"success": False, "error": "존재하지 않는 채팅방입니다."},
+                    {"success": False, "detail": "존재하지 않는 채팅방입니다."},
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
             # 생성자 권한 확인
             if room.created_by != request.user:
                 return Response(
-                    {"success": False, "error": "채팅방을 삭제할 권한이 없습니다."},
+                    {"success": False, "detail": "채팅방을 삭제할 권한이 없습니다."},
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
@@ -378,7 +379,7 @@ class RoomDeleteAPIView(APIView):
         except Exception as e:
             print(f"❌ 방 삭제 오류: {e}")
             return Response(
-                {"success": False, "error": str(e)},
+                {"success": False, "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -420,7 +421,7 @@ class RoomStatsAPIView(APIView):
         except Exception as e:
             print(f"❌ 통계 오류: {e}")
             return Response(
-                {"success": False, "error": str(e)},
+                {"success": False, "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -453,12 +454,12 @@ class GetMessageAPIView(APIView):
 
         except ChatRoom.DoesNotExist:
             return Response(
-                {"error": "존재하지 않는 채팅방입니다."},
+                {"detail": "존재하지 않는 채팅방입니다."},
                 status=status.HTTP_404_NOT_FOUND,
             )
         except RoomMember.DoesNotExist:
             return Response(
-                {"error": "해당 방의 멤버가 아닙니다."},
+                {"detail": "해당 방의 멤버가 아닙니다."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -631,7 +632,7 @@ class RoomInfoAPIView(APIView):
             room = ChatRoom.objects.get(name=room_name, is_active=True)
         except ChatRoom.DoesNotExist:
             return Response(
-                {"success": False, "error": "존재하지 않는 채팅방입니다."},
+                {"success": False, "detail": "존재하지 않는 채팅방입니다."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -722,13 +723,13 @@ class MarkAsReadAPIView(APIView):
         except (ChatRoom.DoesNotExist, RoomMember.DoesNotExist):
             return Response({
                 'success': False,
-                'error': '방을 찾을 수 없습니다.'
+                'detail': '방을 찾을 수 없습니다.'
             }, status=404)
         except Exception as e:
             print(f"❌ 읽음 처리 오류: {e}")
             return Response({
                 'success': False,
-                'error': str(e)
+                'detail': str(e)
             }, status=500)
 
 
@@ -760,5 +761,97 @@ class DisconnectRoomAPIView(APIView):
         except (ChatRoom.DoesNotExist, RoomMember.DoesNotExist):
             return Response({
                 "success": False,
-                "error": "방 또는 멤버를 찾을 수 없습니다."
+                "detail": "방 또는 멤버를 찾을 수 없습니다."
             }, status=404)
+
+class CreateReactionAPIView(APIView):
+    """
+    메시지 리액션 추가/수정/제거 API
+    사용자가 특정 메시지에 리액션을 추가하거나 제거
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, message_id):
+        try:
+            reaction_type = request.data.get("reaction_type", "").strip()
+            if reaction_type not in dict(MessageReaction.REACTION_CHOICES):
+                return JsonResponse({'detail': '잘못된 반응 타입입니다.'}, status=400)
+
+            message = get_object_or_404(ChatMessage, id=message_id)
+
+            existing_reaction = MessageReaction.objects.filter(
+                message=message, user=request.user
+            ).first()
+
+            if existing_reaction:
+                if existing_reaction.reaction_type == reaction_type:
+                    # 동일한 리액션이면 제거
+                    existing_reaction.delete()
+                    action = "removed"
+                else:
+                    # 다른 리액션이면 업데이트
+                    existing_reaction.reaction_type = reaction_type
+                    existing_reaction.save()
+                    action = "updated"
+            else:
+                # 새로운 리액션 추가
+                MessageReaction.objects.create(
+                    message=message,
+                    user=request.user,
+                    reaction_type=reaction_type
+                )
+                action = "added"
+            
+            reaction_counts = {}
+            for choice_key, choice_value in MessageReaction.REACTION_CHOICES:
+                count = MessageReaction.objects.filter(
+                    message=message,
+                    reaction_type=choice_key
+                ).count()
+                reaction_counts[choice_key] = count
+            
+            return JsonResponse({
+            'success': True,
+            'action': action,
+            'reaction_type': reaction_type,
+            'reaction_counts': reaction_counts
+        })
+
+        except Exception as e:
+            return JsonResponse({'detail': str(e)}, status=500)
+        
+class ReactionAPIView(APIView):
+    """
+    메시지 리액션 조회 API
+    특정 메시지에 대한 모든 리액션과 각 리액션별 사용자 목록 반환
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, message_id):
+        try:
+            message = get_object_or_404(ChatMessage, id=message_id)
+            
+            reaction_counts = {}
+            user_reaction = None
+
+            for choice_key, choice_value in MessageReaction.REACTION_CHOICES:
+                reactions = MessageReaction.objects.filter(
+                    message=message,
+                    reaction_type=choice_key
+                ).select_related('user')
+                
+                count = reactions.count()
+                reaction_counts[choice_key] = count
+                
+                # 현재 사용자가 이 반응을 했는지 확인
+                user_reacted = reactions.filter(user=request.user).exists()
+                if user_reacted:
+                    user_reaction = choice_key
+            
+            return JsonResponse({
+                'reaction_counts': reaction_counts,
+                'user_reaction': user_reaction
+            })
+
+        except Exception as e:
+            return JsonResponse({'detail': str(e)}, status=500)

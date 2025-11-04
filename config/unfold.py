@@ -104,6 +104,11 @@ unfold_settings = {
                         "icon": "people",
                         "link": reverse_lazy("admin:chat_roommember_changelist"),
                     },
+                    {
+                        "title": _("메시지 반응"),
+                        "icon": "emoji_emotions",
+                        "link": reverse_lazy("admin:chat_messagereaction_changelist"),
+                    },
                 ],
             },
         ]

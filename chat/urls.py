@@ -20,5 +20,6 @@ urlpatterns = [
     path('api/rooms/<str:room_name>/info/', views.RoomInfoAPIView.as_view(), name='room_info'),
     path("api/rooms/<str:room_name>/mark-read/", views.MarkAsReadAPIView.as_view(), name="api_mark_read"),
     path("api/rooms/<str:room_name>/disconnect/", views.DisconnectRoomAPIView.as_view(), name="api_room_disconnect"),
-    # path('api/rooms/<str:room_name>/messages/<int:message_id>/reactions/', views.MessageReactionAPIView.as_view(), name='message_reaction'),
+    path('api/messages/<int:message_id>/reaction/', views.CreateReactionAPIView.as_view(), name='api_create_message_reaction'),
+    path('api/messages/<int:message_id>/reactions/', views.ReactionAPIView.as_view(), name='api_message_reactions'),
 ]
