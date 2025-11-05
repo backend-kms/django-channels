@@ -174,6 +174,7 @@ function App() {
     
     try {
       const response = await axios.get('/api/my-rooms/');
+      console.log('내 방 데이터:', response.data); // 🔍 데이터 구조 확인
       setMyRooms(response.data || []);
     } catch (error) {
       console.error('내 방 목록 로드 실패:', error);
@@ -210,6 +211,15 @@ function App() {
     
     try {
       await axios.post(`/api/rooms/${roomName}/mark-read/`);
+      
+      // 🔥 읽음 처리 후 myRooms의 안읽은 수 리셋
+      setMyRooms(prevRooms => 
+        prevRooms.map(room => 
+          room.name === roomName 
+            ? { ...room, unread_count: 0 }
+            : room
+        )
+      );
     } catch (error) {
       console.error('읽음 처리 실패:', error);
     }
@@ -265,6 +275,23 @@ function App() {
     
     setMessages(prev => [...prev, newMessage]);
     setTimeout(() => markAsRead(currentRoom), 100);
+
+    // 🔥 내가 보낸 메시지가 아니면 안읽은 수 업데이트
+    if (data.username !== user?.username) {
+      setMyRooms(prevRooms => 
+        prevRooms.map(room => {
+          if (room.name === currentRoom) {
+            return {
+              ...room,
+              last_message: data.message,
+              last_message_time: new Date().toISOString()
+            };
+          } else {
+            return room;
+          }
+        })
+      );
+    }
   };
 
   const handleSystemMessage = (data, roomName) => {
@@ -419,6 +446,15 @@ function App() {
 
           setTimeout(() => markAsRead(targetRoomName), 300);
         }
+
+        // 🔥 방 입장 성공 시 해당 방의 안읽은 메시지 수 리셋
+        setMyRooms(prevRooms => 
+          prevRooms.map(room => 
+            room.name === targetRoomName 
+              ? { ...room, unread_count: 0 }
+              : room
+          )
+        );
 
         setCurrentRoom(targetRoomName);
         setCurrentRoomInfo(joinResponse.data.room);
@@ -885,27 +921,36 @@ function App() {
           <section className="my-rooms-section">
             <div className="section-header">
               <h2>🏠 내가 입장한 채팅방</h2>
-              <span className="room-count">{myRooms.length}개</span>
+              <span className="room-count">
+                {myRooms.length}개
+              </span>
             </div>
             <div className="my-rooms-grid">
-              {myRooms.map(room => (
-                <div key={room.id} className="my-room-card">
-                  <h3 className="room-name">{room.name}</h3>
+              {myRooms
+                .sort((a, b) => (b.unread_count || 0) - (a.unread_count || 0)) // 🔥 안읽은 메시지 많은 순으로 정렬
+                .map(room => (
+                <div key={room.id} className={`my-room-card ${room.unread_count > 0 ? 'has-unread' : ''}`}>
+                  <div className="room-header">
+                    <h3 className="room-name">
+                      {room.name}
+                      {room.unread_count > 0 && (<span className="unread-badge">{room.unread_count > 99 ? '99+' : room.unread_count}</span>)}
+                    </h3>
+                  </div>
                   <p className="room-description">{room.description}</p>
                   <div className="room-info">
                     <span className="room-members">
-                      👥 {room.member_count}/{room.max_members}
+                      👥 인원수: {room.member_count}/{room.max_members}
                     </span>
                     <span className="last-seen">
-                      🕐 {room.last_seen ? new Date(room.last_seen).toLocaleString() : '미접속'}
+                      🕐 마지막 접속: {room.last_seen ? new Date(room.last_seen).toLocaleString() : '미접속'}
                     </span>
                   </div>
                   <div className="room-actions">
                     <button 
-                      className="btn btn-primary btn-sm"
+                      className={`btn btn-sm ${room.unread_count > 0 ? 'btn-primary btn-glow' : 'btn-primary'}`}
                       onClick={() => handleJoinRoom(room.name)}
                     >
-                      열기
+                      {room.unread_count > 0 ? `⚡ 새 메시지 ${room.unread_count}개` : '열기'}
                     </button>
                     <button 
                       className="btn btn-secondary btn-sm"

@@ -232,6 +232,26 @@ class MyRoomsAPIView(APIView):
                 room = membership.room
                 current_member_count = RoomMember.objects.filter(room=room).count()
 
+                last_read_time = membership.last_read_message.created_at if membership.last_read_message else timezone.make_aware(datetime.min)
+                unread_count = ChatMessage.objects.filter(
+                    room=room,
+                    created_at__gt=last_read_time,
+                    user__isnull=False,
+                    is_deleted=False
+                ).count()
+
+                last_message = ChatMessage.objects.filter(
+                    room=room,
+                    is_deleted=False,
+                    user__isnull=False
+                ).order_by('-created_at').first()
+
+                last_message_content = None
+                last_message_time = None
+                if last_message:
+                    last_message_content = last_message.content
+                    last_message_time = last_message.created_at.isoformat()
+
                 rooms_data.append({
                     "id": room.id,
                     "name": room.name,
@@ -255,6 +275,9 @@ class MyRoomsAPIView(APIView):
                         if membership.joined_at
                         else None
                     ),
+                    "unread_count": unread_count,
+                    "last_message": last_message_content,
+                    "last_message_time": last_message_time,
                 })
 
             return Response(rooms_data)

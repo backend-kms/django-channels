@@ -268,6 +268,9 @@ section {
 }
 
 .my-room-card .room-name {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   color: white;
   font-size: 0.9rem;
   font-weight: 600;
@@ -907,4 +910,13 @@ section {
     font-size: 9px;
     min-width: 6px;
   }
+}
+
+.unread-badge {
+  background: red;
+  color: white;
+  padding: 0.1rem 0.3rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
 }
