@@ -37,7 +37,7 @@ const MessageReactions = ({ messageId, currentUser, reactions: initialReactions 
   }, [initialReactions]);
 
   // 반응 데이터 로드
-  const loadReactions = async () => {
+  const loadReactions = useCallback(async () => {
     try {
       const response = await axios.get(`/api/messages/${messageId}/reactions/`);
       if (response.data) {
@@ -47,7 +47,7 @@ const MessageReactions = ({ messageId, currentUser, reactions: initialReactions 
     } catch (error) {
       console.error('반응 로드 실패:', error);
     }
-  };
+  }, [messageId]);
 
   // 반응 토글
   const handleReactionClick = async (reactionType) => {
@@ -63,21 +63,44 @@ const MessageReactions = ({ messageId, currentUser, reactions: initialReactions 
 
       console.log('✅ API 응답:', response.data);
 
-      if (response.data.success) {
-        setReactions(response.data.reaction_counts);
-        setUserReaction(response.data.user_reaction);
+    if (response.data.success) {
+      const reactionCounts = response.data.reaction_counts || {};
+      
+      // 서버 응답에서 user_reaction 계산
+      let calculatedUserReaction = null;
+      if (response.data.action === 'added') {
+        calculatedUserReaction = response.data.reaction_type;
+      } else if (response.data.action === 'removed') {
+        calculatedUserReaction = null;
+      } else if (response.data.action === 'updated') {
+        calculatedUserReaction = response.data.reaction_type;
       }
-    } catch (error) {
-      console.error('반응 처리 실패:', error);
-    } finally {
-      setIsLoading(false);
+      
+      setReactions(reactionCounts);
+      setUserReaction(calculatedUserReaction);
+      
+      console.log('🎨 즉시 색상 변경됨:', {
+        reactions: reactionCounts,
+        userReaction: calculatedUserReaction,
+        action: response.data.action,
+        reaction_type: response.data.reaction_type
+      });
+    } else {
+      console.log('❌ 반응 처리 실패');
+      alert('반응 처리에 실패했습니다.');
     }
-  };
+  } catch (error) {
+    console.error('반응 처리 실패:', error);
+    alert('반응 처리 중 오류가 발생했습니다.');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-  // 컴포넌트 마운트 시 반응 데이터 로드
+  // 컴포넌트 마운트 시 반응 데이터 로드 (의존성 배열에 loadReactions 포함)
   useEffect(() => {
     loadReactions();
-  }, [messageId]);
+  }, [loadReactions]);
 
   return (
     <div className="message-reactions" data-message-id={messageId}>
