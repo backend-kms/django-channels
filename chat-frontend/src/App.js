@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import './App.css';
 
-// 🔧 API 설정
+// API 설정
 const API_BASE_URL = 'http://localhost:8000/chat';
 axios.defaults.baseURL = API_BASE_URL;
 axios.defaults.withCredentials = false;
@@ -54,50 +54,43 @@ const MessageReactions = ({ messageId, currentUser, reactions: initialReactions 
     if (isLoading) return;
 
     setIsLoading(true);
-    console.log('🎯 API 호출:', `/api/messages/${messageId}/reaction/`);
 
     try {
       const response = await axios.post(`/api/messages/${messageId}/reaction/`, {
         reaction_type: reactionType
       });
 
-      console.log('✅ API 응답:', response.data);
+      console.log('1. 반응 API 응답:', response.data);
 
-    if (response.data.success) {
-      const reactionCounts = response.data.reaction_counts || {};
-      
-      // 서버 응답에서 user_reaction 계산
-      let calculatedUserReaction = null;
-      if (response.data.action === 'added') {
-        calculatedUserReaction = response.data.reaction_type;
-      } else if (response.data.action === 'removed') {
-        calculatedUserReaction = null;
-      } else if (response.data.action === 'updated') {
-        calculatedUserReaction = response.data.reaction_type;
+      if (response.data.success) {
+        const reactionCounts = response.data.reaction_counts || {};
+        
+        // 서버 응답에서 user_reaction 계산
+        let calculatedUserReaction = null;
+        if (response.data.action === 'added') {
+          calculatedUserReaction = response.data.reaction_type;
+        } else if (response.data.action === 'removed') {
+          calculatedUserReaction = null;
+        } else if (response.data.action === 'updated') {
+          calculatedUserReaction = response.data.reaction_type;
+        }
+        
+        setReactions(reactionCounts);
+        setUserReaction(calculatedUserReaction);
+        
+        console.log('2. 반응 상태 업데이트 완료:', {
+          action: response.data.action,
+          userReaction: calculatedUserReaction
+        });
       }
-      
-      setReactions(reactionCounts);
-      setUserReaction(calculatedUserReaction);
-      
-      console.log('🎨 즉시 색상 변경됨:', {
-        reactions: reactionCounts,
-        userReaction: calculatedUserReaction,
-        action: response.data.action,
-        reaction_type: response.data.reaction_type
-      });
-    } else {
-      console.log('❌ 반응 처리 실패');
-      alert('반응 처리에 실패했습니다.');
+    } catch (error) {
+      console.error('반응 처리 실패:', error);
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error('반응 처리 실패:', error);
-    alert('반응 처리 중 오류가 발생했습니다.');
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
-  // 컴포넌트 마운트 시 반응 데이터 로드 (의존성 배열에 loadReactions 포함)
+  // 컴포넌트 마운트 시 반응 데이터 로드
   useEffect(() => {
     loadReactions();
   }, [loadReactions]);
@@ -129,12 +122,10 @@ const MessageReactions = ({ messageId, currentUser, reactions: initialReactions 
 };
 
 function App() {
-  // 🔑 인증 상태
+  // 상태 정의
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // 🏠 방 관련 상태
   const [rooms, setRooms] = useState([]);
   const [myRooms, setMyRooms] = useState([]);
   const [stats, setStats] = useState({});
@@ -142,72 +133,38 @@ function App() {
   const [currentRoomInfo, setCurrentRoomInfo] = useState(null);
   const [roomName, setRoomName] = useState('');
   const [showCreateRoom, setShowCreateRoom] = useState(false);
-  
-  // 💬 채팅 상태
   const [socket, setSocket] = useState(null);
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState('');
   const [connected, setConnected] = useState(false);
   const messagesEndRef = useRef(null);
-  
-  // 📝 폼 상태
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [roomForm, setRoomForm] = useState({ name: '', description: '', max_members: 100 });
 
-  // 🔑 JWT 토큰 관리
+  // JWT 토큰 관리
   const setAuthToken = useCallback((token) => {
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       localStorage.setItem('access_token', token);
-      console.log('🔑 토큰 설정됨');
     } else {
       delete axios.defaults.headers.common['Authorization'];
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
-      console.log('🚫 토큰 제거됨');
     }
   }, []);
 
-  // 현재 방 정보 가져오기
-  const fetchCurrentRoomInfo = useCallback(async (roomName) => {
-    if (!roomName || !isAuthenticated) return;
-    
-    try {
-      const response = await axios.get(`/api/rooms/${roomName}/info/`);
-      if (response.data.success) {
-        setCurrentRoomInfo(response.data.room);
-        console.log('📊 현재 방 정보 업데이트:', response.data.room);
-      }
-    } catch (error) {
-      console.error('❌ 현재 방 정보 로드 실패:', error);
-    }
-  }, [isAuthenticated]);
-
-  // 📊 데이터 로드 함수들
+  // 데이터 로드 함수들
   const fetchRooms = useCallback(async () => {
     try {
       const response = await axios.get('/api/rooms/');
       if (response.data.results) {
         setRooms(response.data.results);
-        console.log(`🏠 ${response.data.results.length}개 방 로드됨`);
       }
     } catch (error) {
-      console.error('❌ 방 목록 로드 실패:', error);
+      console.error('방 목록 로드 실패:', error);
     }
   }, []);
-
-  // 📖 메시지 읽음 처리
-  const markAsRead = useCallback(async (roomName) => {
-    if (!roomName || !isAuthenticated) return;
-    
-    try {
-      await axios.post(`/api/rooms/${roomName}/mark-read/`);
-      console.log('📖 메시지 읽음 처리 완료');
-    } catch (error) {
-      console.error('❌ 읽음 처리 실패:', error);
-    }
-  }, [isAuthenticated]);
 
   const fetchMyRooms = useCallback(async () => {
     if (!isAuthenticated) {
@@ -218,9 +175,8 @@ function App() {
     try {
       const response = await axios.get('/api/my-rooms/');
       setMyRooms(response.data || []);
-      console.log(`🏠 내 방 ${response.data?.length || 0}개 로드됨`);
     } catch (error) {
-      console.error('❌ 내 방 목록 로드 실패:', error);
+      console.error('내 방 목록 로드 실패:', error);
       setMyRooms([]);
     }
   }, [isAuthenticated]);
@@ -230,22 +186,41 @@ function App() {
       const response = await axios.get('/api/stats/');
       if (response.data.success) {
         setStats(response.data.stats);
-        console.log('📊 통계 로드됨');
       }
     } catch (error) {
-      console.error('❌ 통계 로드 실패:', error);
+      console.error('통계 로드 실패:', error);
     }
   }, []);
 
-  // 🔄 기존 메시지들의 읽음 수 업데이트 처리
-  const handleMessagesReadCountUpdate = useCallback((updatedMessages, readerUsername) => {
-    console.log('📖 읽음 수 업데이트 받음:', updatedMessages, '읽은 사람:', readerUsername);
+  const fetchCurrentRoomInfo = useCallback(async (roomName) => {
+    if (!roomName || !isAuthenticated) return;
     
+    try {
+      const response = await axios.get(`/api/rooms/${roomName}/info/`);
+      if (response.data.success) {
+        setCurrentRoomInfo(response.data.room);
+      }
+    } catch (error) {
+      console.error('현재 방 정보 로드 실패:', error);
+    }
+  }, [isAuthenticated]);
+
+  const markAsRead = useCallback(async (roomName) => {
+    if (!roomName || !isAuthenticated) return;
+    
+    try {
+      await axios.post(`/api/rooms/${roomName}/mark-read/`);
+    } catch (error) {
+      console.error('읽음 처리 실패:', error);
+    }
+  }, [isAuthenticated]);
+
+  // WebSocket 메시지 핸들러들
+  const handleMessagesReadCountUpdate = useCallback((updatedMessages, readerUsername) => {
     setMessages(prevMessages => {
-      const newMessages = prevMessages.map(msg => {
+      return prevMessages.map(msg => {
         const updatedMsg = updatedMessages.find(um => um.id === msg.message_id);
         if (updatedMsg) {
-          console.log(`📖 메시지 ${msg.message_id} 업데이트: ${msg.unreadCount} → ${updatedMsg.unread_count}`);
           return {
             ...msg,
             unreadCount: updatedMsg.unread_count,
@@ -254,16 +229,11 @@ function App() {
         }
         return msg;
       });
-      
-      return newMessages;
     });
-    
-    console.log(`📖 ${readerUsername}님이 메시지를 읽음 - ${updatedMessages.length}개 메시지 업데이트됨`);
   }, []);
 
-  // 👍 반응 업데이트 핸들러
   const handleReactionUpdate = useCallback((data) => {
-    console.log('👍 반응 업데이트 수신:', data);
+    console.log('3. WebSocket 반응 업데이트:', data);
     
     setMessages(prevMessages => {
       return prevMessages.map(msg => {
@@ -279,7 +249,6 @@ function App() {
     });
   }, []);
 
-  // 💬 일반 채팅 메시지 처리
   const handleChatMessage = (data) => {
     const newMessage = {
       id: data.message_id || Date.now() + Math.random(),
@@ -295,12 +264,9 @@ function App() {
     };
     
     setMessages(prev => [...prev, newMessage]);
-    
-    // 새 메시지 수신 시 읽음 처리
     setTimeout(() => markAsRead(currentRoom), 100);
   };
 
-  // 🔔 시스템 메시지 처리
   const handleSystemMessage = (data, roomName) => {
     const systemMessage = {
       id: Date.now() + Math.random(),
@@ -316,13 +282,12 @@ function App() {
     
     setMessages(prev => [...prev, systemMessage]);
     
-    // 입장/퇴장 시 방 정보 새로고침
     if (data.message.includes('입장') || data.message.includes('퇴장')) {
       setTimeout(() => fetchCurrentRoomInfo(roomName), 500);
     }
   };
 
-  // 🔐 로그인
+  // 사용자 액션 핸들러들
   const handleLogin = async () => {
     try {
       if (!loginForm.username.trim() || !loginForm.password.trim()) {
@@ -330,13 +295,12 @@ function App() {
         return;
       }
 
-      console.log('🔐 로그인 시도...');
+      console.log('1. 로그인 시도:', loginForm.username);
       const response = await axios.post('/api/auth/login/', loginForm);
       
       if (response.data.success) {
         const { access_token, refresh_token, user, message } = response.data;
         
-        // 토큰과 사용자 정보 저장
         setAuthToken(access_token);
         localStorage.setItem('refresh_token', refresh_token);
         localStorage.setItem('user', JSON.stringify(user));
@@ -345,8 +309,8 @@ function App() {
         setIsAuthenticated(true);
         setLoginForm({ username: '', password: '' });
         
+        console.log('2. 로그인 성공:', user.username);
         alert(message);
-        console.log('✅ 로그인 성공:', user.username);
         
         // 데이터 새로고침
         fetchRooms();
@@ -354,13 +318,12 @@ function App() {
         fetchStats();
       }
     } catch (error) {
-      console.error('❌ 로그인 실패:', error);
+      console.error('로그인 실패:', error);
       const errorMessage = error.response?.data?.error || '로그인에 실패했습니다.';
       alert(errorMessage);
     }
   };
 
-  // 🚪 로그아웃
   const handleLogout = async () => {
     try {
       const refreshToken = localStorage.getItem('refresh_token');
@@ -368,14 +331,12 @@ function App() {
         await axios.post('/api/auth/logout/', { refresh_token: refreshToken });
       }
     } catch (error) {
-      console.error('❌ 로그아웃 API 오류:', error);
+      console.error('로그아웃 API 오류:', error);
     } finally {
-      // WebSocket 연결 해제
       if (socket) {
         socket.close();
       }
       
-      // 상태 초기화
       setAuthToken(null);
       setUser(null);
       setIsAuthenticated(false);
@@ -386,15 +347,13 @@ function App() {
       setSocket(null);
       setMyRooms([]);
       
-      console.log('👋 로그아웃 완료');
+      console.log('로그아웃 완료');
       
-      // 데이터 새로고침
       fetchRooms();
       fetchStats();
     }
   };
 
-  // 🏠 방 생성
   const handleCreateRoom = async () => {
     try {
       if (!isAuthenticated) {
@@ -407,25 +366,24 @@ function App() {
         return;
       }
 
-      console.log('🏠 방 생성 시도:', roomForm.name);
+      console.log('1. 방 생성 시도:', roomForm.name);
       const response = await axios.post('/api/rooms/create/', roomForm);
       
       if (response.data.success) {
+        console.log('2. 방 생성 성공');
         alert(response.data.message);
         setShowCreateRoom(false);
         setRoomForm({ name: '', description: '', max_members: 100 });
         fetchRooms();
         fetchMyRooms();
-        console.log('✅ 방 생성 성공');
       }
     } catch (error) {
-      console.error('❌ 방 생성 실패:', error);
+      console.error('방 생성 실패:', error);
       const errorMessage = error.response?.data?.error || '방 생성에 실패했습니다.';
       alert(errorMessage);
     }
   };
 
-  // 🚪 방 입장
   const handleJoinRoom = async (targetRoomName) => {
     try {
       if (!isAuthenticated) {
@@ -433,16 +391,16 @@ function App() {
         return;
       }
 
-      console.log('🚪 방 입장 시도:', targetRoomName);
+      console.log('1. 방 입장 시도:', targetRoomName);
 
-      // 1. 방 입장 API 호출
+      // 방 입장 API 호출
       const joinResponse = await axios.post(`/api/rooms/${targetRoomName}/join/`);
       
       if (joinResponse.data.success) {
-        console.log('✅ 서버 입장 성공:', joinResponse.data.message);
+        console.log('2. 서버 입장 성공');
         const isFirstJoin = joinResponse.data.is_first;
         
-        // 2. 채팅 메시지 히스토리 로드
+        // 채팅 메시지 히스토리 로드
         const messagesResponse = await axios.get(`/api/rooms/${targetRoomName}/messages/`);
         if (messagesResponse.data) {
           const loadedMessages = messagesResponse.data.map(msg => ({
@@ -462,78 +420,55 @@ function App() {
           setTimeout(() => markAsRead(targetRoomName), 300);
         }
 
-        // 3. 방 상태 설정
         setCurrentRoom(targetRoomName);
-        
-        // 4. 현재 방 정보 설정
         setCurrentRoomInfo(joinResponse.data.room);
         
-        // 5. WebSocket 연결
+        // WebSocket 연결
         const ws = new WebSocket(`ws://localhost:8000/ws/chat/${targetRoomName}/`);
         
         ws.onopen = () => {
-          console.log('🔗 WebSocket 연결됨');
+          console.log('3. WebSocket 연결됨');
           setSocket(ws);
           setConnected(true);
 
           if (isFirstJoin) {
-            // 첫 입장 알림 전송
             ws.send(JSON.stringify({
               type: 'user_join',
               username: user?.username,
             }));
-            console.log('🎉 첫 입장 - 입장 메시지 전송');
-          } else {
-            console.log('🔄 재입장 - 입장 메시지 전송 안함');
+            console.log('4. 첫 입장 - 입장 메시지 전송');
           }
         };
         
         ws.onmessage = (event) => {
           const data = JSON.parse(event.data);
-          console.log('📨 메시지 수신:', data);
           
-          // 🔄 기존 메시지들의 읽음 수 업데이트 처리
           if (data.type === 'messages_read_count_update') {
             handleMessagesReadCountUpdate(data.updated_messages, data.reader_username);
-            return;
-          }
-          
-          // 💬 일반 채팅 메시지 처리
-          if (data.type === 'chat') {
+          } else if (data.type === 'chat') {
             handleChatMessage(data);
-            return;
-          }
-          
-          // 🔔 시스템 메시지 처리 (입장/퇴장)
-          if (data.type === 'system') {
+          } else if (data.type === 'system') {
             handleSystemMessage(data, targetRoomName);
-            return;
-          }
-
-          // 👍 반응 업데이트 처리
-          if (data.type === 'reaction_update') {
+          } else if (data.type === 'reaction_update') {
             handleReactionUpdate(data);
-            return;
           }
         };
         
         ws.onclose = () => {
-          console.log('❌ WebSocket 연결 해제됨');
+          console.log('WebSocket 연결 해제됨');
           setSocket(null);
           setConnected(false);
         };
         
         ws.onerror = (error) => {
-          console.error('❌ WebSocket 오류:', error);
+          console.error('WebSocket 오류:', error);
         };
 
-        // 6. 내 방 목록 새로고침
         fetchMyRooms();
-        
-        console.log('✅ 방 입장 완료:', targetRoomName);
+        console.log('5. 방 입장 완료');
       }
     } catch (error) {
-      console.error('❌ 방 입장 실패:', error);
+      console.error('방 입장 실패:', error);
       if (error.response?.status === 404) {
         alert('존재하지 않는 채팅방입니다.');
       } else if (error.response?.status === 400) {
@@ -546,7 +481,6 @@ function App() {
     }
   };
 
-  // 📤 메시지 전송
   const handleSendMessage = () => {
     if (socket && message.trim() && connected) {
       socket.send(JSON.stringify({
@@ -555,19 +489,15 @@ function App() {
         username: user?.username
       }));
       setMessage('');
-      console.log('📤 메시지 전송됨');
-
       setTimeout(() => markAsRead(currentRoom), 100);
     } else if (!connected) {
       alert('채팅방에 연결되지 않았습니다.');
     }
   };
 
-  // 🚪 방 나가기 (서버에 퇴장 알림 + 완전 정리)
   const handleLeaveRoom = async () => {
     if (!currentRoom) return;
 
-    // 진짜 나갈 건지 확인
     if (!window.confirm(`'${currentRoom}' 방에서 나가시겠습니까?`)) {
       return;
     }
@@ -580,45 +510,33 @@ function App() {
           type: 'user_leave',
           username: user?.username,
         }));
-        // 잠깐 기다려서 퇴장 메시지가 전송되도록 함
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
-      // 서버에 퇴장 알림
       await axios.post(`/api/rooms/${leavingRoomName}/leave/`);
-      console.log('🚪 서버에서 방 퇴장 완료');
-      
-      // 내 방 목록 새로고침
       fetchMyRooms();
     } catch (error) {
-      console.error('❌ 서버 방 퇴장 실패:', error);
-      // 서버 오류가 있어도 클라이언트 정리는 계속 진행
+      console.error('서버 방 퇴장 실패:', error);
     } finally {
-      // WebSocket 연결 해제
       if (socket) {
         socket.close();
       }
       
-      // 모든 채팅 관련 상태 초기화
       setCurrentRoom('');
       setCurrentRoomInfo(null);
       setMessages([]);
       setMessage('');
       setConnected(false);
       setSocket(null);
-      
-      console.log('🚪 방에서 완전히 나감 (서버 + 클라이언트 정리)');
     }
   };
 
-  // 내 방에서 나가기
   const handleLeaveMyRoom = async (roomName) => {
     if (!window.confirm(`'${roomName}' 방에서 나가시겠습니까?`)) {
       return;
     }
     
     try {
-      // 현재 채팅 중인 방인 경우 WebSocket으로 퇴장 메시지 전송
       if (currentRoom === roomName && socket && connected) {
         socket.send(JSON.stringify({
           type: 'user_leave',
@@ -626,10 +544,8 @@ function App() {
         }));
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        // 서버에 퇴장 알림
         await axios.post(`/api/rooms/${roomName}/leave/`);
         
-        // 현재 채팅 화면 정리
         if (socket) {
           socket.close();
         }
@@ -640,29 +556,23 @@ function App() {
         setConnected(false);
         setSocket(null);
       } else {
-        // 현재 채팅 중이 아닌 방 - 임시로 WebSocket 연결해서 퇴장 메시지 전송
         const tempWs = new WebSocket(`ws://localhost:8000/ws/chat/${roomName}/`);
         
         tempWs.onopen = () => {
-          console.log('🔗 임시 WebSocket 연결됨 (퇴장 메시지용)');
-          
-          // 퇴장 메시지 전송
           tempWs.send(JSON.stringify({
             type: 'user_leave',
             username: user?.username
           }));
           
-          // 잠깐 기다린 후 연결 해제
           setTimeout(() => {
             tempWs.close();
           }, 200);
         };
         
         tempWs.onerror = (error) => {
-          console.error('❌ 임시 WebSocket 오류:', error);
+          console.error('임시 WebSocket 오류:', error);
         };
         
-        // 서버에 퇴장 알림
         await axios.post(`/api/rooms/${roomName}/leave/`);
       }
       
@@ -670,43 +580,34 @@ function App() {
       alert('방에서 나갔습니다.');
       
     } catch (error) {
-      console.error('❌ 방 나가기 실패:', error);
+      console.error('방 나가기 실패:', error);
       alert('방 나가기에 실패했습니다.');
     }
   };
 
-  // 뒤로가기
   const handleDisconnectRoom = async () => {
-    const roomName = currentRoom; // 현재 방 이름 저장
+    const roomName = currentRoom;
 
     try {
-      // ✅ 1. 서버에 연결 해제 알림 (is_currently_in_room = False)
       if (roomName && isAuthenticated) {
         await axios.post(`/api/rooms/${roomName}/disconnect/`);
-        console.log('🔌 서버에 연결 해제 알림 완료');
       }
     } catch (error) {
-      console.error('❌ 서버 연결 해제 알림 실패:', error);
-      // 서버 오류가 있어도 클라이언트 정리는 계속 진행
+      console.error('서버 연결 해제 알림 실패:', error);
     }
 
-    // ✅ 2. WebSocket 연결 해제
     if (socket) {
       socket.close();
     }
     
-    // ✅ 3. 채팅 상태 초기화하여 방 목록으로 돌아가기
     setCurrentRoom('');
     setCurrentRoomInfo(null);
     setMessages([]);
     setConnected(false);
     setSocket(null);
     setMessage('');
-    
-    console.log('🔙 방 목록으로 돌아가기 (서버 연결 해제 + 클라이언트 정리)');
   };
 
-  // ⌨️ 키보드 이벤트
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') {
       if (!isAuthenticated) {
@@ -719,7 +620,9 @@ function App() {
     }
   };
 
-  // 🔄 초기화
+  // useEffect들 - 실행 순서대로 배치
+  
+  // 1. 초기화 (가장 먼저 실행)
   useEffect(() => {
     const initializeAuth = async () => {
       try {
@@ -730,21 +633,18 @@ function App() {
           setAuthToken(token);
           setUser(JSON.parse(savedUser));
           setIsAuthenticated(true);
-          console.log('💾 로그인 상태 복원됨');
           
           // 토큰 유효성 검사
           try {
             await axios.get('/api/auth/profile/');
-            console.log('✅ 토큰 유효함');
           } catch (error) {
-            console.log('❌ 토큰 만료됨');
             setAuthToken(null);
             setUser(null);
             setIsAuthenticated(false);
           }
         }
       } catch (error) {
-        console.error('❌ 인증 초기화 실패:', error);
+        console.error('인증 초기화 실패:', error);
         setAuthToken(null);
         setUser(null);
         setIsAuthenticated(false);
@@ -756,14 +656,14 @@ function App() {
     initializeAuth();
   }, [setAuthToken]);
 
-  // 데이터 로드
+  // 2. 데이터 로드 (초기화 후)
   useEffect(() => {
     fetchRooms();
     fetchMyRooms();
     fetchStats();
   }, [fetchRooms, fetchMyRooms, fetchStats]);
 
-  // 🔄 정기 데이터 새로고침
+  // 3. 정기 데이터 새로고침 (인증 상태 확인 후)
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -771,7 +671,6 @@ function App() {
       fetchRooms();
       fetchMyRooms();
       fetchStats();
-      // 현재 방 정보도 정기적으로 새로고침
       if (currentRoom) {
         fetchCurrentRoomInfo(currentRoom);
       }
@@ -780,7 +679,7 @@ function App() {
     return () => clearInterval(interval);
   }, [isAuthenticated, fetchRooms, fetchMyRooms, fetchStats, currentRoom, fetchCurrentRoomInfo]);
 
-  // 🧹 컴포넌트 언마운트 시 정리
+  // 4. WebSocket 정리 (컴포넌트 언마운트 시)
   useEffect(() => {
     return () => {
       if (socket) {
@@ -789,14 +688,14 @@ function App() {
     };
   }, [socket]);
 
-  // 📖 채팅창이 활성화될 때마다 읽음 처리
+  // 5. 읽음 처리 (채팅창 활성화 시)
   useEffect(() => {
     if (currentRoom && isAuthenticated) {
       markAsRead(currentRoom);
     }
   }, [currentRoom, isAuthenticated, markAsRead]);
 
-  // 🔄 메시지가 변경될 때마다 자동 스크롤
+  // 6. 자동 스크롤 (메시지 변경 시)
   useEffect(() => {
     const messagesContainer = document.querySelector('.chat-messages');
     if (messagesContainer) {
@@ -804,7 +703,7 @@ function App() {
     }
   }, [messages]);
 
-  // 🔄 채팅방 입장 시 즉시 맨 아래로 스크롤
+  // 7. 즉시 스크롤 (채팅방 입장 시)
   useEffect(() => {
     if (currentRoom && messages.length > 0) {
       setTimeout(() => {
@@ -816,7 +715,7 @@ function App() {
     }
   }, [currentRoom, messages.length]);
 
-  // 🔄 로딩 화면
+  // 로딩 화면
   if (isLoading) {
     return (
       <div className="app">
@@ -829,7 +728,7 @@ function App() {
     );
   }
 
-  // 💬 채팅 화면
+  // 채팅 화면
   if (currentRoom) {
     return (
       <div className="app chat-app">
@@ -849,13 +748,9 @@ function App() {
           </div>
           <div className="header-actions">
             <span className="user-name">👋 {user?.username}</span>
-
-            {/* 서버 호출 포함 실제 나가기 */}
             <button onClick={handleLeaveRoom} className="btn btn-secondary">
               방 나가기
             </button>
-
-            {/* WebSocket만 끊기 */}
             <button onClick={handleDisconnectRoom} className="btn btn-outline">
               뒤로가기
             </button>
@@ -864,63 +759,59 @@ function App() {
 
         <div className="chat-messages">
           {messages.length === 0 ? (
-  <div className="empty-state">
-    <span className="empty-icon">🌟</span>
-    <p>첫 번째 메시지를 보내보세요!</p>
-  </div>
-    ) : messages.map(msg => (
-      <div 
-        key={msg.id} 
-        className={`message ${
-          msg.isSystem ? 'system-message' : 
-          msg.author === user?.username ? 'my-message' : 'other-message'
-        }`}
-        data-message-id={msg.message_id}
-      >
-        <div className="message-header">
-          <span className="author">{msg.author}</span>
-          <span className="time">{msg.time}</span>
-        </div>
-        
-        {!msg.isSystem ? (
-          <>
-            {/* 메시지 버블과 읽음 표시 */}
-            <div className="message-wrapper">
-              <div className="message-bubble">
-                <div className="message-content">{msg.text}</div>
+            <div className="empty-state">
+              <span className="empty-icon">🌟</span>
+              <p>첫 번째 메시지를 보내보세요!</p>
+            </div>
+          ) : messages.map(msg => (
+            <div 
+              key={msg.id} 
+              className={`message ${
+                msg.isSystem ? 'system-message' : 
+                msg.author === user?.username ? 'my-message' : 'other-message'
+              }`}
+              data-message-id={msg.message_id}
+            >
+              <div className="message-header">
+                <span className="author">{msg.author}</span>
+                <span className="time">{msg.time}</span>
               </div>
               
-              {/* 읽음 표시 - 버블 옆에 */}
-              <div className="read-status">
-                {msg.author === user?.username ? (
-                  msg.unreadCount > 0 && (
-                    <span className="unread-count">{msg.unreadCount}</span>
-                  )
-                ) : (
-                  msg.isReadByAll ? (
-                    <span className="read-all"></span>
-                  ) : msg.unreadCount > 0 ? (
-                    <span className="unread-count">{msg.unreadCount}</span>
-                  ) : null
-                )}
-              </div>
+              {!msg.isSystem ? (
+                <>
+                  <div className="message-wrapper">
+                    <div className="message-bubble">
+                      <div className="message-content">{msg.text}</div>
+                    </div>
+                    
+                    <div className="read-status">
+                      {msg.author === user?.username ? (
+                        msg.unreadCount > 0 && (
+                          <span className="unread-count">{msg.unreadCount}</span>
+                        )
+                      ) : (
+                        msg.isReadByAll ? (
+                          <span className="read-all"></span>
+                        ) : msg.unreadCount > 0 ? (
+                          <span className="unread-count">{msg.unreadCount}</span>
+                        ) : null
+                      )}
+                    </div>
+                  </div>
+                  
+                  <MessageReactions 
+                    messageId={msg.message_id}
+                    currentUser={user?.username}
+                    reactions={msg.reactions}
+                  />
+                </>
+              ) : (
+                <div className="message-bubble">
+                  <div className="message-content">{msg.text}</div>
+                </div>
+              )}
             </div>
-            
-            {/* 반응 버튼들 - 완전히 아래에 별도로 */}
-            <MessageReactions 
-              messageId={msg.message_id}
-              currentUser={user?.username}
-              reactions={msg.reactions}
-            />
-          </>
-        ) : (
-          /* 시스템 메시지 */
-          <div className="message-bubble">
-            <div className="message-content">{msg.text}</div>
-          </div>
-        )}
-      </div>
-    ))}
+          ))}
           <div ref={messagesEndRef} />
         </div>
 
@@ -948,11 +839,9 @@ function App() {
 
   return (
     <div className="app">
-      {/* 헤더 */}
       <header className="app-header">
         <h1>Test 채팅</h1>
         <div className="header-actions">
-          {/* 온라인 사용자 수 */}
           <div className="online-stats">
             <span className="stat-icon stat-text">🌱 온라인 수: </span>
             <span className="stat-text">  {stats.online_users || 0}</span>
@@ -991,10 +880,7 @@ function App() {
         </div>
       </header>
 
-      {/* 메인 컨텐츠 */}
       <main className="main-content">
-
-        {/* 내가 입장한 채팅방 목록 */}
         {isAuthenticated && myRooms.length > 0 && (
           <section className="my-rooms-section">
             <div className="section-header">
@@ -1034,7 +920,6 @@ function App() {
           </section>
         )}
 
-        {/* 방 생성 섹션 */}
         {isAuthenticated && (
           <section className="create-section">
             <div className="section-header">
@@ -1086,7 +971,6 @@ function App() {
           </section>
         )}
 
-        {/* 모든 채팅방 목록 */}
         <section className="rooms-section">
           <h2>🌟 모든 채팅방</h2>
           {rooms.length === 0 ? (
