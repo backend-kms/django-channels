@@ -1003,16 +1003,6 @@ section {
   transform: none !important;
 }
 
-@keyframes uploading {
-  0% { opacity: 0.5; }
-  50% { opacity: 1; }
-  100% { opacity: 0.5; }
-}
-
-.btn:disabled {
-  animation: uploading 1.5s infinite;
-}
-
 ::-webkit-scrollbar {
   width: 6px;
 }

@@ -380,6 +380,7 @@ function App() {
     };
 
     console.log('생성된 메시지 객체:', newMessage); // 디버그 로그
+    console.log('파일 URL:', newMessage.fileUrl);
 
     setMessages(prev => [...prev, newMessage]);
     setTimeout(() => markAsRead(currentRoom), 100);
@@ -540,7 +541,7 @@ function App() {
             fileName: msg.file_name,
             fileSize: msg.file_size,
             fileSizeHuman: msg.file_size_human,
-            fileUrl: msg.file_url,             
+            fileUrl: msg.file,             
             unreadCount: msg.unread_count || 0,
             isReadByAll: msg.is_read_by_all || false,
             userId: msg.user_id,
@@ -1125,25 +1126,6 @@ function App() {
           ))}
           <div ref={messagesEndRef} />
         </div>
-
-        {/* <div className="message-input">
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="메시지를 입력하세요..."
-            disabled={!connected}
-            className="message-field"
-          />
-          <button 
-            onClick={handleSendMessage} 
-            disabled={!connected || !message.trim()}
-            className="btn btn-primary"
-          >
-            전송
-          </button>
-        </div> */}
         <div className="message-input">
           {/* 파일 선택 표시 */}
           {selectedFile && (
