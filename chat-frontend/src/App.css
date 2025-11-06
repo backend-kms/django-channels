@@ -1,4 +1,3 @@
-/* 기본 스타일 */
 * {
   margin: 0;
   padding: 0;
@@ -19,7 +18,7 @@ body {
   background: #0a0a0a;
 }
 
-/* 로딩 화면 */
+
 .loading-container {
   display: flex;
   flex-direction: column;
@@ -45,7 +44,6 @@ body {
   100% { transform: rotate(360deg); }
 }
 
-/* 헤더 */
 .app-header {
   background: #111111;
   border-bottom: 1px solid #333;
@@ -69,7 +67,6 @@ body {
   gap: 12px;
 }
 
-/* 온라인 통계 */
 .online-stats {
   display: flex;
   align-items: center;
@@ -126,7 +123,6 @@ body {
   border-color: #555;
 }
 
-/* 버튼 스타일 */
 .btn {
   padding: 0.4rem 0.8rem;
   border: 1px solid #333;
@@ -198,7 +194,6 @@ body {
   font-size: 0.7rem;
 }
 
-/* 메인 컨텐츠 */
 .main-content {
   flex: 1;
   padding: 1rem;
@@ -207,7 +202,6 @@ body {
   width: 100%;
 }
 
-/* 섹션 스타일 */
 section {
   background: #111111;
   border: 1px solid #333;
@@ -229,7 +223,6 @@ section {
   color: #ffffff;
 }
 
-/* 내가 입장한 채팅방 섹션 */
 .my-rooms-section {
   background: #0d1f0d !important;
   border: 1px solid #1a5f1a !important;
@@ -305,7 +298,6 @@ section {
   padding: 0.4rem 0.6rem;
 }
 
-/* 방 생성 폼 */
 .create-section {
   background: #1a1a1a !important;
   border: 1px solid #444 !important;
@@ -360,7 +352,6 @@ section {
   margin-top: 0.3rem;
 }
 
-/* 방 목록 */
 .empty-rooms {
   text-align: center;
   color: #666;
@@ -423,7 +414,6 @@ section {
   color: #666;
 }
 
-/* ========== 채팅 화면 ========== */
 .chat-app {
   background: #0a0a0a;
 }
@@ -498,7 +488,6 @@ section {
   border: 1px solid #333;
 }
 
-/* 채팅 메시지 영역 */
 .chat-messages {
   flex: 1;
   padding: 1rem;
@@ -522,7 +511,6 @@ section {
   margin-bottom: 0.5rem;
 }
 
-/* ========== 메시지 스타일 (완전 수정) ========== */
 .message {
   margin-bottom: 1rem;
   display: flex;
@@ -552,7 +540,6 @@ section {
   font-size: 0.8rem;
 }
 
-/* 메시지 wrapper: 버블 + 읽음 표시를 한 줄에 */
 .message-wrapper {
   display: flex;
   align-items: flex-end;
@@ -560,7 +547,6 @@ section {
   max-width: 100%;
 }
 
-/* 메시지 콘텐츠 컨테이너 */
 .message-content-container {
   display: flex;
   flex-direction: column;
@@ -568,7 +554,6 @@ section {
   flex: 1;
 }
 
-/* 내 메시지 전체를 오른쪽 정렬 */
 .message.my-message {
   align-items: flex-end;
   justify-content: flex-end;
@@ -584,7 +569,6 @@ section {
   color: #ccc;
 }
 
-/* 내 메시지 wrapper - 오른쪽 정렬 */
 .message.my-message .message-wrapper {
   flex-direction: row-reverse;
   justify-content: flex-end;
@@ -598,7 +582,6 @@ section {
   word-break: break-word;
 }
 
-/* 다른 사람 메시지 전체를 왼쪽 정렬 */
 .message.other-message {
   align-items: flex-start;
   justify-content: flex-start;
@@ -609,7 +592,6 @@ section {
   color: #4ade80;
 }
 
-/* 다른 사람 메시지 wrapper - 왼쪽 정렬 */
 .message.other-message .message-wrapper {
   flex-direction: row;
   justify-content: flex-start;
@@ -624,7 +606,6 @@ section {
   border: 1px solid #e0e0e0;
 }
 
-/* 시스템 메시지 */
 .message.system-message {
   align-items: center;
   text-align: center;
@@ -647,7 +628,6 @@ section {
   display: inline-block;
 }
 
-/* 읽음 표시 - wrapper 안에서 메시지 옆에 */
 .read-status {
   display: flex;
   align-items: flex-end;
@@ -670,7 +650,6 @@ section {
   white-space: nowrap;
 }
 
-/* 반응은 메시지 버블 바로 아래(별도 줄) */
 .message-reactions {
   display: flex;
   flex-wrap: wrap;
@@ -678,24 +657,20 @@ section {
   margin-top: 6px;
 }
 
-/* 내 메시지의 반응은 오른쪽 정렬 */
 .my-message .message-reactions {
   justify-content: flex-end;
 }
 
-/* 다른 사람 메시지의 반응은 왼쪽 정렬 */
 .other-message .message-reactions {
   justify-content: flex-start;
 }
 
-/* 반응 버튼들의 컨테이너 */
 .reaction-buttons {
   display: flex;
   gap: 4px;
   margin-top: 0.2rem;
 }
 
-/* 개별 반응 버튼 - 카카오톡 스타일의 작은 알약 */
 .reaction-btn {
   display: inline-flex;
   align-items: center;
@@ -718,7 +693,6 @@ section {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* 활성화된 반응 (내가 누른 것) */
 .reaction-btn.active {
   background: linear-gradient(135deg, #007bff, #0056b3);
   border-color: #0056b3;
@@ -731,13 +705,11 @@ section {
   box-shadow: 0 3px 8px rgba(0, 123, 255, 0.4);
 }
 
-/* 반응 이모지 */
 .reaction-emoji {
   font-size: 11px;
   line-height: 1;
 }
 
-/* 반응 개수 */
 .reaction-count {
   font-size: 10px;
   font-weight: 600;
@@ -751,12 +723,10 @@ section {
   color: rgba(255, 255, 255, 0.9);
 }
 
-/* 반응이 0개일 때는 숨기기 */
 .reaction-btn .reaction-count:empty {
   display: none;
 }
 
-/* 반응 애니메이션 */
 @keyframes reactionBounce {
   0% { transform: scale(1); }
   50% { transform: scale(1.2); }
@@ -767,12 +737,10 @@ section {
   animation: reactionBounce 0.3s ease;
 }
 
-/* 시스템 메시지는 반응 없음 */
 .system-message .message-reactions {
   display: none;
 }
 
-/* ========== 🔥 메시지 입력 및 파일 업로드 스타일 (수정된 부분) ========== */
 .message-input {
   padding: 15px;
   border-top: 1px solid #333;
@@ -782,7 +750,6 @@ section {
   z-index: 10;
 }
 
-/* 선택된 파일 표시 */
 .selected-file {
   display: flex;
   align-items: center;
@@ -795,7 +762,6 @@ section {
   box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
-/* 이미지 미리보기 */
 .image-preview {
   display: flex;
   align-items: center;
@@ -842,14 +808,12 @@ section {
   background-color: #ff4444;
 }
 
-/* 입력 행 */
 .input-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-/* 파일 첨부 버튼 */
 .file-btn {
   background-color: #333;
   border: 1px solid #555;
@@ -877,7 +841,6 @@ section {
   cursor: not-allowed;
 }
 
-/* 메시지 입력 필드 수정 */
 .message-field {
   flex: 1;
   padding: 12px 16px;
@@ -900,7 +863,6 @@ section {
   color: #666;
 }
 
-/* 버튼 스타일 개선 (파일 업로드용) */
 .btn {
   padding: 10px 16px;
   border: none;
@@ -930,12 +892,10 @@ section {
   cursor: not-allowed;
 }
 
-/* 파일 메시지 스타일 */
 .file-message {
   max-width: 100%;
 }
 
-/* 이미지 메시지 */
 .image-message {
   text-align: center;
   position: relative;
@@ -955,7 +915,6 @@ section {
   transform: scale(1.02);
 }
 
-/* 이미지 로드 실패 시 대체 표시 */
 .image-fallback {
   display: flex;
   align-items: center;
@@ -967,7 +926,6 @@ section {
   max-width: 300px;
 }
 
-/* 파일 첨부 */
 .file-attachment {
   display: flex;
   align-items: center;
@@ -997,20 +955,19 @@ section {
 
 .file-name {
   font-weight: 500;
-  color: #fff;
+  color: #000000;
   word-break: break-all;
-  display: block;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
   line-height: 1.3;
 }
 
 .file-size {
-  color: #ccc;
+  color: #1a1a1a;
   font-size: 12px;
 }
 
 .download-btn {
-  background-color: #007bff;
+  background-color: #003d82;
   color: white;
   border: none;
   padding: 6px 12px;
@@ -1026,7 +983,6 @@ section {
   background-color: #0056b3;
 }
 
-/* 메시지 버블 내 파일 콘텐츠 조정 */
 .message-bubble .file-message {
   padding: 0;
 }
@@ -1041,14 +997,12 @@ section {
   margin: 0;
 }
 
-/* 로딩 상태 */
 .btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
   transform: none !important;
 }
 
-/* 업로드 진행 중 애니메이션 */
 @keyframes uploading {
   0% { opacity: 0.5; }
   50% { opacity: 1; }
@@ -1059,7 +1013,6 @@ section {
   animation: uploading 1.5s infinite;
 }
 
-/* 스크롤바 스타일 */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -1077,7 +1030,6 @@ section {
   background: #444;
 }
 
-/* 반응형 디자인 */
 @media (max-width: 768px) {
   .app-header {
     padding: 0.8rem;
@@ -1159,7 +1111,7 @@ section {
   
   .message-field {
     padding: 10px 12px;
-    font-size: 16px; /* iOS에서 줌 방지 */
+    font-size: 16px;
   }
   
   .btn {
