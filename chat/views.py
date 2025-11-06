@@ -513,6 +513,38 @@ class JoinRoomAPIView(APIView):
 
         online_members_count = RoomMember.objects.filter(room=room, is_currently_in_room=True).count()
 
+        # 🔥 글로벌 WebSocket으로 안읽은 수 업데이트 브로드캐스트
+        try:
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+            
+            # 현재 사용자의 안읽은 메시지 수 계산
+            from datetime import datetime
+            last_read_time = (
+                member.last_read_message.created_at 
+                if member.last_read_message 
+                else timezone.make_aware(datetime.min)
+            )
+            
+            unread_count = ChatMessage.objects.filter(
+                room=room,
+                created_at__gt=last_read_time,
+                user__isnull=False,
+                is_deleted=False
+            ).count()
+            
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f"user_{request.user.id}_global",
+                {
+                    "type": "unread_count_update",
+                    "room_name": room_name,
+                    "unread_count": unread_count
+                }
+            )
+        except Exception as e:
+            print(f"❌ 입장 시 글로벌 WebSocket 브로드캐스트 오류: {e}")
+
         return Response({
             "success": True,
             "message": f"{request.user.username}님이 입장했습니다.",
@@ -733,6 +765,23 @@ class MarkAsReadAPIView(APIView):
                             "type": "messages_read_count_update",
                             "updated_messages": updated_messages,
                             "reader_username": user.username
+                        }
+                    )
+                    
+                    # 🔥 글로벌 WebSocket으로도 안읽은 수 업데이트 브로드캐스트
+                    final_unread_count = ChatMessage.objects.filter(
+                        room=room,
+                        created_at__gt=latest_message.created_at,
+                        user__isnull=False,
+                        is_deleted=False
+                    ).count()
+                    
+                    async_to_sync(channel_layer.group_send)(
+                        f"user_{user.id}_global",
+                        {
+                            "type": "unread_count_update",
+                            "room_name": room_name,
+                            "unread_count": final_unread_count
                         }
                     )
             

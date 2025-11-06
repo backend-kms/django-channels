@@ -78,6 +78,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "updated_messages": updated_messages
                 }
             )
+        
+        # 🔥 입장 시 전체 안읽은 메시지 수 업데이트
+        await self.broadcast_unread_counts_update()
 
     async def handle_user_leave(self, username):
         """사용자 퇴장 처리"""
@@ -98,6 +101,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message_data = await self.save_message_with_read_info(username, message, "text")
         
         if message_data:
+            # 채팅방 내 메시지 브로드캐스트
             await self.channel_layer.group_send(
                 self.room_group_name, 
                 {
@@ -110,6 +114,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "user_id": message_data['user_id']
                 }
             )
+            
+            # 🔥 전체 안읽은 메시지 수 업데이트 브로드캐스트
+            await self.broadcast_unread_counts_update()
 
     async def handle_mark_read(self, username, message_id):
         """읽음 처리"""
@@ -257,8 +264,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except (User.DoesNotExist, ChatMessage.DoesNotExist):
             pass
 
-    @database_sync_to_async
-    def update_online_status(self, is_online):
+    async def update_online_status(self, is_online):
         """온라인 상태 업데이트"""
         if not hasattr(self, 'username') or not self.username:
             return
@@ -272,3 +278,159 @@ class ChatConsumer(AsyncWebsocketConsumer):
             member.save()
         except (User.DoesNotExist, ChatRoom.DoesNotExist):
             pass
+
+    async def broadcast_unread_counts_update(self):
+        """전체 안읽은 메시지 수 업데이트 브로드캐스트"""
+        try:
+            # 현재 방의 모든 멤버들의 안읽은 메시지 수 계산
+            room_unread_data = await self.get_room_unread_counts()
+            
+            # 각 사용자별로 개별 브로드캐스트 (user_id 사용)
+            for user_data in room_unread_data:
+                await self.channel_layer.group_send(
+                    f"user_{user_data['user_id']}_global",
+                    {
+                        "type": "unread_count_update",
+                        "room_name": self.room_name,
+                        "unread_count": user_data['unread_count']
+                    }
+                )
+        except Exception as e:
+            print(f"❌ 안읽은 메시지 수 브로드캐스트 오류: {e}")
+
+    @database_sync_to_async
+    def get_room_unread_counts(self):
+        """방의 모든 멤버들의 안읽은 메시지 수 계산"""
+        try:
+            from datetime import datetime
+            
+            room = ChatRoom.objects.get(name=self.room_name)
+            members = RoomMember.objects.filter(room=room).select_related('user', 'last_read_message')
+            
+            unread_data = []
+            for member in members:
+                last_read_time = (
+                    member.last_read_message.created_at 
+                    if member.last_read_message 
+                    else timezone.make_aware(datetime.min)
+                )
+                
+                unread_count = ChatMessage.objects.filter(
+                    room=room,
+                    created_at__gt=last_read_time,
+                    user__isnull=False,
+                    is_deleted=False
+                ).count()
+                
+                unread_data.append({
+                    'username': member.user.username,
+                    'user_id': member.user.id,  # 🔥 user_id 추가
+                    'unread_count': unread_count
+                })
+            
+            return unread_data
+        except Exception as e:
+            print(f"❌ 안읽은 메시지 수 계산 오류: {e}")
+            return []
+
+
+class GlobalNotificationConsumer(AsyncWebsocketConsumer):
+    """
+    전역 알림 WebSocket Consumer
+    방 목록 페이지에서 안읽은 메시지 수를 실시간으로 업데이트
+    """
+    
+    async def connect(self):
+        """WebSocket 연결 설정"""
+        # URL에서 사용자 ID 추출
+        self.user_id = self.scope["url_route"]["kwargs"].get("user_id")
+        if not self.user_id:
+            await self.close()
+            return
+        
+        # 사용자별 글로벌 그룹에 참가 (user_id 사용)
+        self.user_group_name = f"user_{self.user_id}_global"
+        
+        await self.channel_layer.group_add(
+            self.user_group_name,
+            self.channel_name
+        )
+        
+        await self.accept()
+        
+        # 연결 즉시 현재 안읽은 메시지 수 전송
+        await self.send_current_unread_counts()
+
+    async def disconnect(self, close_code):
+        """WebSocket 연결 해제"""
+        if hasattr(self, 'user_group_name'):
+            await self.channel_layer.group_discard(
+                self.user_group_name,
+                self.channel_name
+            )
+
+    async def receive(self, text_data):
+        """클라이언트 메시지 수신 (필요 시 확장 가능)"""
+        try:
+            data = json.loads(text_data)
+            if data.get("type") == "refresh_unread_counts":
+                await self.send_current_unread_counts()
+        except json.JSONDecodeError:
+            pass
+
+    async def unread_count_update(self, event):
+        """안읽은 메시지 수 업데이트 전송"""
+        await self.send(text_data=json.dumps({
+            "type": "unread_count_update",
+            "room_name": event["room_name"],
+            "unread_count": event["unread_count"]
+        }))
+
+    async def send_current_unread_counts(self):
+        """현재 모든 방의 안읽은 메시지 수 전송"""
+        try:
+            unread_counts = await self.get_all_unread_counts()
+            await self.send(text_data=json.dumps({
+                "type": "all_unread_counts",
+                "unread_counts": unread_counts
+            }))
+        except Exception as e:
+            print(f"❌ 전체 안읽은 메시지 수 전송 오류: {e}")
+
+    @database_sync_to_async
+    def get_all_unread_counts(self):
+        """사용자의 모든 방 안읽은 메시지 수 계산"""
+        try:
+            from datetime import datetime
+            
+            user = User.objects.get(id=self.user_id)
+            memberships = RoomMember.objects.filter(
+                user=user, 
+                room__is_active=True
+            ).select_related('room', 'last_read_message')
+            
+            unread_counts = {}
+            
+            for membership in memberships:
+                last_read_time = (
+                    membership.last_read_message.created_at 
+                    if membership.last_read_message 
+                    else timezone.make_aware(datetime.min)
+                )
+                
+                unread_count = ChatMessage.objects.filter(
+                    room=membership.room,
+                    created_at__gt=last_read_time,
+                    user__isnull=False,
+                    is_deleted=False
+                ).count()
+                
+                unread_counts[membership.room.name] = unread_count
+            
+            return unread_counts
+            
+        except User.DoesNotExist:
+            return {}
+        except Exception as e:
+            print(f"❌ 전체 안읽은 메시지 수 계산 오류: {e}")
+            return {}

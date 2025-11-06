@@ -134,6 +134,7 @@ function App() {
   const [roomName, setRoomName] = useState('');
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [socket, setSocket] = useState(null);
+  const globalSocketRef = useRef(null); // 🔥 useRef로 변경
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState('');
   const [connected, setConnected] = useState(false);
@@ -151,6 +152,66 @@ function App() {
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
+    }
+  }, []);
+
+  // 🔥 글로벌 WebSocket 연결 함수
+  const connectGlobalSocket = useCallback((user) => {
+    // 이미 연결되어 있으면 종료
+    if (globalSocketRef.current && globalSocketRef.current.readyState === WebSocket.OPEN) {
+      return;
+    }
+    
+    // 기존 연결이 있으면 정리
+    if (globalSocketRef.current) {
+      globalSocketRef.current.close();
+    }
+
+    const ws = new WebSocket(`ws://localhost:8000/ws/global/${user.id}/`);
+    
+    ws.onopen = () => {
+      console.log('🌐 글로벌 WebSocket 연결됨');
+      globalSocketRef.current = ws;
+    };
+    
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      if (data.type === 'unread_count_update') {
+        // 특정 방의 안읽은 메시지 수 업데이트
+        setMyRooms(prevRooms => 
+          prevRooms.map(room => 
+            room.name === data.room_name 
+              ? { ...room, unread_count: data.unread_count }
+              : room
+          )
+        );
+      } else if (data.type === 'all_unread_counts') {
+        // 모든 방의 안읽은 메시지 수 일괄 업데이트
+        setMyRooms(prevRooms => 
+          prevRooms.map(room => ({
+            ...room,
+            unread_count: data.unread_counts[room.name] || 0
+          }))
+        );
+      }
+    };
+    
+    ws.onclose = () => {
+      console.log('🌐 글로벌 WebSocket 연결 해제됨');
+      globalSocketRef.current = null;
+    };
+    
+    ws.onerror = (error) => {
+      console.error('🌐 글로벌 WebSocket 오류:', error);
+    };
+  }, []); // 🔥 의존성 배열을 빈 배열로 변경
+
+  // 🔥 글로벌 WebSocket 해제 함수
+  const disconnectGlobalSocket = useCallback(() => {
+    if (globalSocketRef.current) {
+      globalSocketRef.current.close();
+      globalSocketRef.current = null;
     }
   }, []);
 
@@ -339,6 +400,9 @@ function App() {
         console.log('2. 로그인 성공:', user.username);
         alert(message);
         
+        // 🔥 글로벌 WebSocket 연결
+        connectGlobalSocket(user);
+        
         // 데이터 새로고침
         fetchRooms();
         fetchMyRooms();
@@ -363,6 +427,9 @@ function App() {
       if (socket) {
         socket.close();
       }
+      
+      // 🔥 글로벌 WebSocket 해제
+      disconnectGlobalSocket();
       
       setAuthToken(null);
       setUser(null);
@@ -473,6 +540,13 @@ function App() {
               username: user?.username,
             }));
             console.log('4. 첫 입장 - 입장 메시지 전송');
+          }
+          
+          // 🔥 글로벌 WebSocket으로 안읽은 수 새로고침 요청
+          if (globalSocketRef.current && globalSocketRef.current.readyState === WebSocket.OPEN) {
+            globalSocketRef.current.send(JSON.stringify({
+              type: 'refresh_unread_counts'
+            }));
           }
         };
         
@@ -667,12 +741,15 @@ function App() {
         
         if (token && savedUser) {
           setAuthToken(token);
-          setUser(JSON.parse(savedUser));
+          const userData = JSON.parse(savedUser);
+          setUser(userData);
           setIsAuthenticated(true);
           
           // 토큰 유효성 검사
           try {
             await axios.get('/api/auth/profile/');
+            // 🔥 토큰이 유효하면 글로벌 WebSocket 연결
+            connectGlobalSocket(userData);
           } catch (error) {
             setAuthToken(null);
             setUser(null);
@@ -690,7 +767,7 @@ function App() {
     };
 
     initializeAuth();
-  }, [setAuthToken]);
+  }, [setAuthToken]); // 🔥 connectGlobalSocket 의존성 제거
 
   // 2. 데이터 로드 (초기화 후)
   useEffect(() => {
@@ -720,6 +797,9 @@ function App() {
     return () => {
       if (socket) {
         socket.close();
+      }
+      if (globalSocketRef.current) {
+        globalSocketRef.current.close();
       }
     };
   }, [socket]);
