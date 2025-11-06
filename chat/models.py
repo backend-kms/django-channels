@@ -79,7 +79,7 @@ class ChatMessage(models.Model):
 
     room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE, related_name="messages", verbose_name="채팅방")
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="chat_messages", verbose_name="작성자")
-    content = models.TextField(verbose_name="메시지 내용")
+    content = models.TextField(blank=True, null=True, verbose_name="메시지 내용")
     message_type = models.CharField(max_length=10, choices=MESSAGE_TYPES, default="text", verbose_name="메시지 타입")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="작성일시")
     edited_at = models.DateTimeField(null=True, blank=True, verbose_name="수정일시")
