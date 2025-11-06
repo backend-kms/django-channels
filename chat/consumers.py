@@ -168,6 +168,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
         'reaction_counts': event['reaction_counts'],
         'user': event['user']
     }))
+        
+    async def file_message(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'file',
+            'message_id': event['message_id'],
+            'username': event['username'],
+            'user_id': event['user_id'],
+            'file_name': event['file_name'],
+            'file_size': event['file_size'],
+            'file_size_human': event['file_size_human'],
+            'file_url': event['file_url'],
+            'message_type': event['message_type'],
+            'timestamp': event['timestamp'],
+            'content': event.get('content'),
+            'is_image': event['is_image']
+        }))
 
     # 데이터베이스 작업
     @database_sync_to_async
@@ -231,7 +247,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             recent_messages = ChatMessage.objects.filter(
                 room=room,
                 is_deleted=False,
-                message_type='text'
+                message_type__in=['text', 'file', 'image']
             ).order_by('-created_at')[:50]
             
             # 현재 온라인 멤버들
@@ -325,7 +341,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 unread_count = ChatMessage.objects.filter(
                     room=room,
                     created_at__gt=last_read_time,
-                    message_type='text',
+                    message_type__in=['text', 'file', 'image'],
                     user__isnull=False,
                     is_deleted=False,
                 ).count()
@@ -429,7 +445,7 @@ class GlobalNotificationConsumer(AsyncWebsocketConsumer):
                 unread_count = ChatMessage.objects.filter(
                     room=membership.room,
                     created_at__gt=last_read_time,
-                    message_type='text',
+                    message_type__in=['text', 'file', 'image'],
                     user__isnull=False,
                     is_deleted=False
                 ).count()

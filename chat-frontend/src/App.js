@@ -141,6 +141,9 @@ function App() {
   const messagesEndRef = useRef(null);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [roomForm, setRoomForm] = useState({ name: '', description: '', max_members: 100 });
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   // JWT 토큰 관리
   const setAuthToken = useCallback((token) => {
@@ -170,7 +173,7 @@ function App() {
     const ws = new WebSocket(`ws://localhost:8000/ws/global/${user.id}/`);
     
     ws.onopen = () => {
-      console.log('🌐 글로벌 WebSocket 연결됨');
+      console.log('글로벌 WebSocket 연결됨');
       globalSocketRef.current = ws;
     };
     
@@ -198,12 +201,12 @@ function App() {
     };
     
     ws.onclose = () => {
-      console.log('🌐 글로벌 WebSocket 연결 해제됨');
+      console.log('글로벌 WebSocket 연결 해제됨');
       globalSocketRef.current = null;
     };
     
     ws.onerror = (error) => {
-      console.error('🌐 글로벌 WebSocket 오류:', error);
+      console.error('글로벌 WebSocket 오류:', error);
     };
   }, []); // 🔥 의존성 배열을 빈 배열로 변경
 
@@ -273,14 +276,14 @@ function App() {
     try {
       await axios.post(`/api/rooms/${roomName}/mark-read/`);
       
-      // 🔥 읽음 처리 후 myRooms의 안읽은 수 리셋
-      setMyRooms(prevRooms => 
-        prevRooms.map(room => 
-          room.name === roomName 
-            ? { ...room, unread_count: 0 }
-            : room
-        )
-      );
+        // 읽음 처리 후 myRooms의 안읽은 수 리셋
+        setMyRooms(prevRooms => 
+          prevRooms.map(room => 
+            room.name === roomName 
+              ? { ...room, unread_count: 0 }
+              : room
+          )
+        );
     } catch (error) {
       console.error('읽음 처리 실패:', error);
     }
@@ -337,7 +340,7 @@ function App() {
     setMessages(prev => [...prev, newMessage]);
     setTimeout(() => markAsRead(currentRoom), 100);
 
-    // 🔥 내가 보낸 메시지가 아니면 안읽은 수 업데이트
+    // 내가 보낸 메시지가 아니면 안읽은 수 업데이트
     if (data.username !== user?.username) {
       setMyRooms(prevRooms => 
         prevRooms.map(room => {
@@ -353,6 +356,33 @@ function App() {
         })
       );
     }
+  };
+
+  const handleFileMessage = (data) => {
+    const newMessage = {
+      id: data.message_id || Date.now() + Math.random(),
+      message_id: data.message_id,
+      text: data.content || data.file_name || "파일",
+      author: data.username,
+      time: data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString(),
+      isSystem: false,
+      isFile: true,
+      isImage: data.is_image || data.message_type === 'image',
+      messageType: data.message_type,
+      fileName: data.file_name || '알 수 없는 파일',
+      fileSize: data.file_size || 0,
+      fileSizeHuman: data.file_size_human || '0 B',
+      fileUrl: data.file_url || '',
+      unreadCount: 0,
+      isReadByAll: false,
+      userId: data.user_id,
+      reactions: {}
+    };
+
+    console.log('생성된 메시지 객체:', newMessage); // 디버그 로그
+
+    setMessages(prev => [...prev, newMessage]);
+    setTimeout(() => markAsRead(currentRoom), 100);
   };
 
   const handleSystemMessage = (data, roomName) => {
@@ -400,7 +430,7 @@ function App() {
         console.log('2. 로그인 성공:', user.username);
         alert(message);
         
-        // 🔥 글로벌 WebSocket 연결
+        // 글로벌 WebSocket 연결
         connectGlobalSocket(user);
         
         // 데이터 새로고침
@@ -428,7 +458,7 @@ function App() {
         socket.close();
       }
       
-      // 🔥 글로벌 WebSocket 해제
+      // 글로벌 WebSocket 해제
       disconnectGlobalSocket();
       
       setAuthToken(null);
@@ -504,6 +534,13 @@ function App() {
             author: msg.username || 'Anonymous',
             time: new Date(msg.created_at).toLocaleTimeString(),
             isSystem: msg.message_type === 'system',
+            isFile: msg.message_type === 'file' || msg.message_type === 'image',
+            isImage: msg.is_image || msg.message_type === 'image',
+            messageType: msg.message_type,
+            fileName: msg.file_name,
+            fileSize: msg.file_size,
+            fileSizeHuman: msg.file_size_human,
+            fileUrl: msg.file_url,             
             unreadCount: msg.unread_count || 0,
             isReadByAll: msg.is_read_by_all || false,
             userId: msg.user_id,
@@ -514,7 +551,7 @@ function App() {
           setTimeout(() => markAsRead(targetRoomName), 300);
         }
 
-        // 🔥 방 입장 성공 시 해당 방의 안읽은 메시지 수 리셋
+        // 방 입장 성공 시 해당 방의 안읽은 메시지 수 리셋
         setMyRooms(prevRooms => 
           prevRooms.map(room => 
             room.name === targetRoomName 
@@ -544,7 +581,7 @@ function App() {
             console.log('4. 재입장 - 입장 메시지 전송 안함');
           }
           
-          // 🔥 글로벌 WebSocket으로 안읽은 수 새로고침 요청
+          // 글로벌 WebSocket으로 안읽은 수 새로고침 요청
           if (globalSocketRef.current && globalSocketRef.current.readyState === WebSocket.OPEN) {
             globalSocketRef.current.send(JSON.stringify({
               type: 'refresh_unread_counts'
@@ -563,6 +600,8 @@ function App() {
             handleSystemMessage(data, targetRoomName);
           } else if (data.type === 'reaction_update') {
             handleReactionUpdate(data);
+          } else if (data.type === 'file') { 
+            handleFileMessage(data);
           }
         };
         
@@ -732,6 +771,104 @@ function App() {
     }
   };
 
+  // 파일 크기를 읽기 쉬운 형태로 변환
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // 이미지 파일인지 확인
+  const isImageFile = (fileName) => {
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+    return imageExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
+  };
+
+  // 파일 선택 핸들러
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    console.log('원본 파일 객체:', file); // 디버그 로그
+    
+    if (file) {
+      // 파일 크기 제한 (10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('파일 크기는 10MB를 초과할 수 없습니다.');
+        return;
+      }
+      
+      // 원본 File 객체 그대로 사용하되, 추가 속성만 설정
+      if (isImageFile(file.name)) {
+        const previewUrl = URL.createObjectURL(file);
+        // Object.assign 대신 직접 설정
+        file.previewUrl = previewUrl;
+        file.isImage = true;
+      } else {
+        file.isImage = false;
+      }
+      
+      setSelectedFile(file);
+      console.log('설정된 파일 객체:', file); // 디버그 로그
+      console.log('파일 이름:', file.name);
+      console.log('파일 크기:', file.size);
+      console.log('파일 타입:', file.type);
+    }
+  };
+
+  // 파일 업로드 핸들러
+  const handleFileUpload = async () => {
+    if (!selectedFile || !currentRoom || isUploading) return;
+
+    setIsUploading(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      
+      console.log('업로드할 파일:', selectedFile);
+      console.log('파일 이름:', selectedFile.name);
+      console.log('파일 크기:', selectedFile.size);
+      console.log('파일 타입:', selectedFile.type);
+      console.log('FormData 확인:', formData.get('file'));
+      
+      const response = await axios.post(`/api/rooms/${currentRoom}/upload/`, formData, {
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          console.log(`업로드 진행률: ${percentCompleted}%`);
+        }
+      });
+      
+      if (response.data.success) {
+        console.log('파일 업로드 성공:', response.data.file);
+        // 선택된 파일 정리
+        if (selectedFile.previewUrl) {
+          URL.revokeObjectURL(selectedFile.previewUrl);
+        }
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    } catch (error) {
+      console.error('파일 업로드 실패:', error);
+      alert(error.response?.data?.error || '파일 업로드에 실패했습니다.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // 파일 다운로드 핸들러
+  const handleFileDownload = (fileUrl, fileName) => {
+    const link = document.createElement('a');
+    link.href = `http://localhost:8000${fileUrl}`;
+    link.download = fileName;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // useEffect들 - 실행 순서대로 배치
   
   // 1. 초기화 (가장 먼저 실행)
@@ -750,7 +887,7 @@ function App() {
         // 토큰 유효성 검사
         try {
           await axios.get('/api/auth/profile/');
-          // 🔥 토큰이 유효하면 글로벌 WebSocket 연결
+          // 토큰이 유효하면 글로벌 WebSocket 연결
           connectGlobalSocket(userData);
         } catch (error) {
           setAuthToken(null);
@@ -833,6 +970,14 @@ function App() {
     }
   }, [currentRoom, messages.length]);
 
+  useEffect(() => {
+    return () => {
+      if (selectedFile?.previewUrl) {
+        URL.revokeObjectURL(selectedFile.previewUrl);
+      }
+    };
+  }, [selectedFile]);
+
   // 로딩 화면
   if (isLoading) {
     return (
@@ -899,7 +1044,55 @@ function App() {
                 <>
                   <div className="message-wrapper">
                     <div className="message-bubble">
-                      <div className="message-content">{msg.text}</div>
+                      {msg.isFile ? (
+                        <div className="file-message">
+                          {msg.isImage ? (
+                            // 이미지 메시지
+                            <div className="image-message">
+                              <img 
+                                src={`http://localhost:8000${msg.fileUrl}`}
+                                alt={msg.fileName}
+                                className="message-image"
+                                onClick={() => handleFileDownload(msg.fileUrl, msg.fileName)}
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  e.target.nextSibling.style.display = 'block';
+                                }}
+                              />
+                              <div className="image-fallback" style={{display: 'none'}}>
+                                <div className="file-icon">🖼️</div>
+                                <div className="file-details">
+                                  <div className="file-name">{msg.fileName}</div>
+                                  <div className="file-size">{msg.fileSizeHuman}</div>
+                                  <button 
+                                    className="download-btn"
+                                    onClick={() => handleFileDownload(msg.fileUrl, msg.fileName)}
+                                  >
+                                    다운로드
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            // 일반 파일 메시지
+                            <div className="file-attachment">
+                              <div className="file-icon">📎</div>
+                              <div className="file-details">
+                                <div className="file-name">{msg.fileName}</div>
+                                <div className="file-size">{msg.fileSizeHuman}</div>
+                              </div>
+                              <button 
+                                className="download-btn"
+                                onClick={() => handleFileDownload(msg.fileUrl, msg.fileName)}
+                              >
+                                다운로드
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="message-content">{msg.text}</div>
+                      )}
                     </div>
                     
                     <div className="read-status">
@@ -933,7 +1126,7 @@ function App() {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="message-input">
+        {/* <div className="message-input">
           <input
             type="text"
             value={message}
@@ -950,6 +1143,90 @@ function App() {
           >
             전송
           </button>
+        </div> */}
+        <div className="message-input">
+          {/* 파일 선택 표시 */}
+          {selectedFile && (
+            <div className="selected-file">
+              {selectedFile.isImage ? (
+                <div className="image-preview">
+                  <img 
+                    src={selectedFile.previewUrl} 
+                    alt="미리보기"
+                    className="preview-image"
+                  />
+                  <div className="file-info">
+                    <span>🖼️ {selectedFile.name}</span>
+                    <span>({formatFileSize(selectedFile.size)})</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="file-info">
+                  <span>📎 {selectedFile.name}</span>
+                  <span>({formatFileSize(selectedFile.size)})</span>
+                </div>
+              )}
+              <button onClick={() => {
+                if (selectedFile.previewUrl) {
+                  URL.revokeObjectURL(selectedFile.previewUrl);
+                }
+                setSelectedFile(null);
+              }} className="remove-file">
+                ❌
+              </button>
+            </div>
+          )}
+          
+          <div className="input-row">
+            {/* 파일 선택 버튼 */}
+            <button 
+              className="file-btn"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={!connected || isUploading}
+              title="파일 첨부"
+            >
+              📎
+            </button>
+            
+            {/* 숨겨진 파일 입력 */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+              accept="*/*"
+            />
+            
+            {/* 메시지 입력 */}
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="메시지를 입력하세요..."
+              disabled={!connected}
+              className="message-field"
+            />
+            
+            {/* 전송 버튼들 */}
+            {selectedFile ? (
+              <button 
+                onClick={handleFileUpload} 
+                disabled={!connected || isUploading}
+                className="btn btn-primary"
+              >
+                {isUploading ? '업로드 중...' : '파일 전송'}
+              </button>
+            ) : (
+              <button 
+                onClick={handleSendMessage} 
+                disabled={!connected || !message.trim()}
+                className="btn btn-primary"
+              >
+                전송
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );

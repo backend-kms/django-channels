@@ -1,4 +1,6 @@
 from datetime import datetime
+import mimetypes
+import os
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 from rest_framework.views import APIView
@@ -16,6 +18,7 @@ from .models import ChatRoom, ChatMessage, MessageReaction, RoomMember, UserProf
 from django.utils import timezone
 from django.contrib.auth import authenticate
 from drf_spectacular.utils import extend_schema
+from rest_framework.parsers import MultiPartParser, FormParser
 
 
 # 기존 템플릿 뷰들 (테스트용)
@@ -949,3 +952,95 @@ class ReactionAPIView(APIView):
 
         except Exception as e:
             return JsonResponse({'detail': str(e)}, status=500)
+        
+
+class FileUploadAPIView(APIView):
+    """
+    파일 업로드 API
+    채팅 메시지에 첨부할 파일 업로드 처리
+    """
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, room_name):
+        try:
+            room = ChatRoom.objects.get(name=room_name, is_active=True)
+            user = request.user
+
+            if not RoomMember.objects.filter(room=room, user=user).exists():
+                return Response(
+                    {'success': False, 'detail': '해당 방의 멤버가 아닙니다.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            uploaded_file = request.FILES.get('file')
+            print(uploaded_file)
+            if not uploaded_file:
+                return Response(
+                    {'success': False, 'detail': '업로드할 파일이 없습니다.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            content_type, _ = mimetypes.guess_type(uploaded_file.name)
+
+            is_image = content_type and content_type.startswith('image/')
+            message_type = 'image' if is_image else 'file'
+
+            allowed_image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']
+            file_extension = os.path.splitext(uploaded_file.name)[1].lower()
+
+            if message_type == 'image' and file_extension not in allowed_image_extensions:
+                message_type = 'file'
+            
+            chat_message = ChatMessage.objects.create(
+                room=room,
+                user=user,
+                content='',
+                message_type=message_type,
+                file=uploaded_file,
+                file_name=uploaded_file.name,
+                file_size=uploaded_file.size,
+            )
+
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f"chat_{room_name}",
+                {
+                    'type': 'file_message',
+                    'message_id': chat_message.id,
+                    'username': user.username,
+                    'user_id': user.id,
+                    'file_name': chat_message.file_name,
+                    'file_size': chat_message.file_size,
+                    'file_size_human': chat_message.file_size_human,
+                    'file_url': chat_message.file.url if chat_message.file else None,
+                    'message_type': message_type,
+                    'timestamp': chat_message.created_at.isoformat(),
+                    'content': None,
+                    'is_image': message_type == 'image'
+                }
+            )
+            
+            return Response({
+                'success': True,
+                'message': f'{"이미지" if message_type == "image" else "파일"}가 업로드되었습니다.',
+                'file': {
+                    'id': chat_message.id,
+                    'name': chat_message.file_name,
+                    'size': chat_message.file_size,
+                    'size_human': chat_message.file_size_human,
+                    'url': chat_message.file.url if chat_message.file else None,
+                    'type': message_type,
+                    'is_image': message_type == 'image'
+                }
+            })
+
+        except Exception as e:
+            print(f"파일 업로드 오류: {e}")
+            return Response(
+                {'success': False, 'detail': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
