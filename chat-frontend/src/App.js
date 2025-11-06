@@ -736,41 +736,41 @@ function App() {
   
   // 1. 초기화 (가장 먼저 실행)
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const token = localStorage.getItem('access_token');
-        const savedUser = localStorage.getItem('user');
-        
-        if (token && savedUser) {
-          setAuthToken(token);
-          const userData = JSON.parse(savedUser);
-          setUser(userData);
-          setIsAuthenticated(true);
-          
-          // 토큰 유효성 검사
-          try {
-            await axios.get('/api/auth/profile/');
-            // 🔥 토큰이 유효하면 글로벌 WebSocket 연결
-            connectGlobalSocket(userData);
-          } catch (error) {
-            setAuthToken(null);
-            setUser(null);
-            setIsAuthenticated(false);
-          }
+  const initializeAuth = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const savedUser = localStorage.getItem('user');
+      
+      if (token && savedUser) {
+        setAuthToken(token);
+        const userData = JSON.parse(savedUser);
+        setUser(userData);
+        setIsAuthenticated(true);
+
+        // 토큰 유효성 검사
+        try {
+          await axios.get('/api/auth/profile/');
+          // 🔥 토큰이 유효하면 글로벌 WebSocket 연결
+          connectGlobalSocket(userData);
+        } catch (error) {
+          setAuthToken(null);
+          setUser(null);
+          setIsAuthenticated(false);
         }
-      } catch (error) {
-        console.error('인증 초기화 실패:', error);
-        setAuthToken(null);
-        setUser(null);
-        setIsAuthenticated(false);
-      } finally {
-        setIsLoading(false);
       }
-    };
+    } catch (error) {
+      console.error('인증 초기화 실패:', error);
+      setAuthToken(null);
+      setUser(null);
+      setIsAuthenticated(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    initializeAuth();
-  }, [setAuthToken]); // 🔥 connectGlobalSocket 의존성 제거
-
+  initializeAuth();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
   // 2. 데이터 로드 (초기화 후)
   useEffect(() => {
     fetchRooms();
