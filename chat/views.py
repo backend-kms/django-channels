@@ -21,11 +21,13 @@ from drf_spectacular.utils import extend_schema
 from rest_framework.parsers import MultiPartParser, FormParser
 
 
-# 기존 템플릿 뷰들 (테스트용)
+# 테스트용 템플릿 뷰
 def index(request):
+    """채팅 메인 페이지"""
     return render(request, "chat/index.html")
 
 def room(request, room_name):
+    """채팅방 페이지"""
     return render(request, "chat/room.html", {"room_name": room_name})
 
 
@@ -33,7 +35,7 @@ def room(request, room_name):
 class LoginAPIView(APIView):
     """
     JWT 기반 로그인 API
-    사용자 인증 후 access_token과 refresh_token 반환, 온라인 상태 업데이트
+    사용자 인증 후 access_token과 refresh_token 반환
     """
     permission_classes = [AllowAny]
 
@@ -84,7 +86,6 @@ class LoginAPIView(APIView):
                 )
 
         except Exception as e:
-            print(f"❌ 로그인 오류: {e}")
             return Response(
                 {"success": False, "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -121,7 +122,6 @@ class LogoutAPIView(APIView):
             return Response({"success": True, "message": "로그아웃되었습니다."})
 
         except Exception as e:
-            print(f"❌ 로그아웃 오류: {e}")
             return Response(
                 {"success": False, "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -152,7 +152,6 @@ class UserProfileAPIView(APIView):
             })
 
         except Exception as e:
-            print(f"❌ 프로필 조회 오류: {e}")
             return Response(
                 {"success": False, "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -169,7 +168,7 @@ class RoomListAPIView(APIView):
 
     def get(self, request):
         try:
-            # 본인이 속한 방 제외
+            # 본인이 속한 방 ID 목록 조회
             rooms_in_me = (
                 RoomMember.objects.filter(
                     user=request.user, room__is_active=True
@@ -178,6 +177,7 @@ class RoomListAPIView(APIView):
                 else []
             )
             
+            # 본인이 속하지 않은 활성 채팅방 조회 (최대 20개)
             rooms = (
                 ChatRoom.objects.filter(is_active=True)
                 .exclude(id__in=rooms_in_me)
@@ -186,20 +186,19 @@ class RoomListAPIView(APIView):
 
             rooms_data = []
             for room in rooms:
-                can_delete = False
-                if request.user.is_authenticated and room.created_by:
-                    can_delete = room.created_by == request.user
+                # 삭제 권한 확인 (방 생성자만 가능)
+                can_delete = (
+                    request.user.is_authenticated and 
+                    room.created_by and 
+                    room.created_by == request.user
+                )
 
                 rooms_data.append({
                     "id": room.id,
                     "name": room.name,
                     "description": room.description,
                     "created_at": room.created_at.isoformat(),
-                    "created_by": (
-                        room.created_by.username
-                        if room.created_by
-                        else "알 수 없음"
-                    ),
+                    "created_by": room.created_by.username if room.created_by else "알 수 없음",
                     "max_members": room.max_members,
                     "member_count": RoomMember.objects.filter(room=room).count(),
                     "can_delete": can_delete,
@@ -208,7 +207,6 @@ class RoomListAPIView(APIView):
             return Response({"results": rooms_data})
 
         except Exception as e:
-            print(f"❌ 방 목록 오류: {e}")
             return Response(
                 {"success": False, "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -224,6 +222,7 @@ class MyRoomsAPIView(APIView):
 
     def get(self, request):
         try:
+            # 사용자가 속한 모든 활성 방 조회 (최근 접속순)
             my_memberships = (
                 RoomMember.objects.filter(user=request.user, room__is_active=True)
                 .select_related("room", "room__created_by")
@@ -235,49 +234,40 @@ class MyRoomsAPIView(APIView):
                 room = membership.room
                 current_member_count = RoomMember.objects.filter(room=room).count()
 
-                last_read_time = membership.last_read_message.created_at if membership.last_read_message else timezone.make_aware(datetime.min)
+                # 안읽은 메시지 수 계산
+                last_read_time = (
+                    membership.last_read_message.created_at 
+                    if membership.last_read_message 
+                    else timezone.make_aware(datetime.min)
+                )
                 unread_count = ChatMessage.objects.filter(
                     room=room,
                     created_at__gt=last_read_time,
-                    user__isnull=False,
+                    user__isnull=False,  # 시스템 메시지 제외
                     is_deleted=False
                 ).count()
 
+                # 마지막 메시지 정보 조회
                 last_message = ChatMessage.objects.filter(
                     room=room,
                     is_deleted=False,
                     user__isnull=False
                 ).order_by('-created_at').first()
 
-                last_message_content = None
-                last_message_time = None
-                if last_message:
-                    last_message_content = last_message.content
-                    last_message_time = last_message.created_at.isoformat()
+                last_message_content = last_message.content if last_message else None
+                last_message_time = last_message.created_at.isoformat() if last_message else None
 
                 rooms_data.append({
                     "id": room.id,
                     "name": room.name,
                     "description": room.description,
                     "created_at": room.created_at.isoformat(),
-                    "created_by": (
-                        room.created_by.username
-                        if room.created_by
-                        else "알 수 없음"
-                    ),
+                    "created_by": room.created_by.username if room.created_by else "알 수 없음",
                     "max_members": room.max_members,
                     "member_count": current_member_count,
                     "is_admin": membership.is_admin,
-                    "last_seen": (
-                        membership.last_seen.isoformat()
-                        if membership.last_seen
-                        else None
-                    ),
-                    "joined_at": (
-                        membership.joined_at.isoformat()
-                        if membership.joined_at
-                        else None
-                    ),
+                    "last_seen": membership.last_seen.isoformat() if membership.last_seen else None,
+                    "joined_at": membership.joined_at.isoformat() if membership.joined_at else None,
                     "unread_count": unread_count,
                     "last_message": last_message_content,
                     "last_message_time": last_message_time,
@@ -286,7 +276,6 @@ class MyRoomsAPIView(APIView):
             return Response(rooms_data)
 
         except Exception as e:
-            print(f"❌ 내 방 목록 오류: {e}")
             return Response(
                 {"success": False, "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -306,12 +295,10 @@ class RoomCreateAPIView(APIView):
             description = request.data.get("description", "").strip()
             max_members_input = request.data.get("max_members", 100)
 
-            # max_members 정수 변환 및 범위 제한
+            # 최대 인원수 정수 변환 및 범위 제한 (1-1000)
             try:
                 if isinstance(max_members_input, str):
-                    max_members = (
-                        int(max_members_input) if max_members_input.strip() else 100
-                    )
+                    max_members = int(max_members_input) if max_members_input.strip() else 100
                 else:
                     max_members = int(max_members_input)
             except (ValueError, TypeError):
@@ -326,13 +313,14 @@ class RoomCreateAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            # 중복 방 이름 확인
             if ChatRoom.objects.filter(name=room_name, is_active=True).exists():
                 return Response(
                     {"success": False, "detail": "이미 존재하는 방 이름입니다."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # 방 생성 및 생성자 관리자 등록
+            # 방 생성
             room = ChatRoom.objects.create(
                 name=room_name,
                 description=description or f"{room_name} 채팅방",
@@ -340,6 +328,7 @@ class RoomCreateAPIView(APIView):
                 created_by=request.user,
             )
 
+            # 생성자를 관리자로 자동 등록
             RoomMember.objects.create(
                 room=room, user=request.user, is_admin=True, last_seen=timezone.now()
             )
@@ -362,7 +351,6 @@ class RoomCreateAPIView(APIView):
             )
 
         except Exception as e:
-            print(f"❌ 방 생성 오류: {e}")
             return Response(
                 {"success": False, "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -393,7 +381,7 @@ class RoomDeleteAPIView(APIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-            # 방 비활성화 처리
+            # 방 비활성화 처리 (실제 삭제 X)
             room_name = room.name
             room.is_active = False
             room.save()
@@ -403,7 +391,6 @@ class RoomDeleteAPIView(APIView):
             )
 
         except Exception as e:
-            print(f"❌ 방 삭제 오류: {e}")
             return Response(
                 {"success": False, "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -419,6 +406,7 @@ class RoomStatsAPIView(APIView):
 
     def get(self, request):
         try:
+            # 서버 통계 데이터 수집
             total_rooms = ChatRoom.objects.filter(is_active=True).count()
             total_users = User.objects.count()
             
@@ -427,6 +415,7 @@ class RoomStatsAPIView(APIView):
                 created_at__date=today, is_deleted=False
             ).count()
 
+            # 온라인 사용자 수 (안전하게 처리)
             try:
                 online_users = UserProfile.objects.filter(is_online=True).count()
             except:
@@ -445,7 +434,6 @@ class RoomStatsAPIView(APIView):
             })
 
         except Exception as e:
-            print(f"❌ 통계 오류: {e}")
             return Response(
                 {"success": False, "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -464,7 +452,7 @@ class GetMessageAPIView(APIView):
             room = ChatRoom.objects.get(name=room_name, is_active=True)
             room_member = RoomMember.objects.get(room=room, user=request.user)
 
-            # 입장 시점 이후 메시지만 조회
+            # 사용자 입장 시점 이후 메시지만 조회
             messages = (
                 ChatMessage.objects.filter(
                     room=room,
@@ -509,20 +497,19 @@ class JoinRoomAPIView(APIView):
         current_members = RoomMember.objects.filter(room=room).count()
         member, created = RoomMember.objects.get_or_create(room=room, user=request.user)
 
-        # 접속 상태 업데이트
+        # 실시간 접속 상태 업데이트
         member.last_seen = timezone.now()
         member.is_currently_in_room = True
         member.save()
 
         online_members_count = RoomMember.objects.filter(room=room, is_currently_in_room=True).count()
 
-        # 🔥 글로벌 WebSocket으로 안읽은 수 업데이트 브로드캐스트
+        # 글로벌 WebSocket으로 안읽은 수 업데이트 브로드캐스트
         try:
             from channels.layers import get_channel_layer
             from asgiref.sync import async_to_sync
             
             # 현재 사용자의 안읽은 메시지 수 계산
-            from datetime import datetime
             last_read_time = (
                 member.last_read_message.created_at 
                 if member.last_read_message 
@@ -546,7 +533,7 @@ class JoinRoomAPIView(APIView):
                 }
             )
         except Exception as e:
-            print(f"❌ 입장 시 글로벌 WebSocket 브로드캐스트 오류: {e}")
+            print(f"입장 시 글로벌 WebSocket 브로드캐스트 오류: {e}")
 
         return Response({
             "success": True,
@@ -582,8 +569,12 @@ class LeaveRoomAPIView(APIView):
         try:
             member = RoomMember.objects.get(room=room, user=request.user)
             
-            # ✅ 나가기 전 안 읽은 메시지들을 모두 읽음 처리
-            last_read_time = member.last_read_message.created_at if member.last_read_message else timezone.make_aware(datetime.min)
+            # 나가기 전 안 읽은 메시지들을 모두 읽음 처리
+            last_read_time = (
+                member.last_read_message.created_at 
+                if member.last_read_message 
+                else timezone.make_aware(datetime.min)
+            )
             unread_messages = ChatMessage.objects.filter(
                 room=room,
                 created_at__gt=last_read_time,
@@ -628,17 +619,14 @@ class LeaveRoomAPIView(APIView):
                             "reader_username": request.user.username
                         }
                     )
-                    
-                    print(f"📖 {request.user.username}님이 나가기 전 {processed_count}개 메시지 읽음 처리")
 
         except RoomMember.DoesNotExist:
-            # 이미 방에 없는 경우
             return Response(
                 {"success": False, "detail": "방에 참여하지 않은 상태입니다."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ✅ 멤버 완전 삭제
+        # 멤버 완전 삭제
         deleted_count, _ = RoomMember.objects.filter(
             room=room, user=request.user
         ).delete()
@@ -669,7 +657,7 @@ class LeaveRoomAPIView(APIView):
                     "message": f"{request.user.username}님이 퇴장했습니다.",
                     "remaining_members": member_count,
                     "room_deactivated": False,
-                    "messages_read": processed_count  # ✅ 읽음 처리된 메시지 수 반환
+                    "messages_read": processed_count
                 })
         else:
             return Response(
@@ -694,6 +682,7 @@ class RoomInfoAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+        # 방 통계 정보 계산
         current_members = RoomMember.objects.filter(room=room).count()
         online_members = RoomMember.objects.filter(room=room, is_currently_in_room=True).count()
 
@@ -726,7 +715,11 @@ class MarkAsReadAPIView(APIView):
             member = RoomMember.objects.get(room=room, user=user)
             
             # 안 읽은 메시지 찾기
-            last_read_time = member.last_read_message.created_at if member.last_read_message else timezone.make_aware(datetime.min)
+            last_read_time = (
+                member.last_read_message.created_at 
+                if member.last_read_message 
+                else timezone.make_aware(datetime.min)
+            )
             unread_messages = ChatMessage.objects.filter(
                 room=room,
                 created_at__gt=last_read_time,
@@ -771,7 +764,7 @@ class MarkAsReadAPIView(APIView):
                         }
                     )
                     
-                    # 🔥 글로벌 WebSocket으로도 안읽은 수 업데이트 브로드캐스트
+                    # 글로벌 WebSocket으로도 안읽은 수 업데이트 브로드캐스트
                     final_unread_count = ChatMessage.objects.filter(
                         room=room,
                         created_at__gt=latest_message.created_at,
@@ -801,7 +794,6 @@ class MarkAsReadAPIView(APIView):
                 'detail': '방을 찾을 수 없습니다.'
             }, status=404)
         except Exception as e:
-            print(f"❌ 읽음 처리 오류: {e}")
             return Response({
                 'success': False,
                 'detail': str(e)
@@ -839,6 +831,8 @@ class DisconnectRoomAPIView(APIView):
                 "detail": "방 또는 멤버를 찾을 수 없습니다."
             }, status=404)
 
+
+# 메시지 반응 관련 API
 class CreateReactionAPIView(APIView):
     """
     메시지 리액션 추가/수정/제거 API
@@ -849,11 +843,14 @@ class CreateReactionAPIView(APIView):
     def post(self, request, message_id):
         try:
             reaction_type = request.data.get("reaction_type", "").strip()
+            
+            # 유효한 반응 타입인지 확인
             if reaction_type not in dict(MessageReaction.REACTION_CHOICES):
                 return JsonResponse({'detail': '잘못된 반응 타입입니다.'}, status=400)
 
             message = get_object_or_404(ChatMessage, id=message_id)
 
+            # 기존 반응 확인
             existing_reaction = MessageReaction.objects.filter(
                 message=message, user=request.user
             ).first()
@@ -877,6 +874,7 @@ class CreateReactionAPIView(APIView):
                 )
                 action = "added"
             
+            # 모든 반응 타입별 개수 계산
             reaction_counts = {}
             for choice_key, choice_value in MessageReaction.REACTION_CHOICES:
                 count = MessageReaction.objects.filter(
@@ -905,22 +903,23 @@ class CreateReactionAPIView(APIView):
                     }
                 )
             except Exception as e:
-                print(f"❌ WebSocket 브로드캐스트 오류: {e}")
+                print(f"WebSocket 브로드캐스트 오류: {e}")
                 
             return JsonResponse({
-            'success': True,
-            'action': action,
-            'reaction_type': reaction_type,
-            'reaction_counts': reaction_counts
-        })
+                'success': True,
+                'action': action,
+                'reaction_type': reaction_type,
+                'reaction_counts': reaction_counts
+            })
 
         except Exception as e:
             return JsonResponse({'detail': str(e)}, status=500)
-        
+
+
 class ReactionAPIView(APIView):
     """
     메시지 리액션 조회 API
-    특정 메시지에 대한 모든 리액션과 각 리액션별 사용자 목록 반환
+    특정 메시지에 대한 모든 리액션과 현재 사용자의 반응 상태 반환
     """
     permission_classes = [IsAuthenticated]
 
@@ -931,6 +930,7 @@ class ReactionAPIView(APIView):
             reaction_counts = {}
             user_reaction = None
 
+            # 모든 반응 타입별 개수 및 사용자 반응 확인
             for choice_key, choice_value in MessageReaction.REACTION_CHOICES:
                 reactions = MessageReaction.objects.filter(
                     message=message,
@@ -952,8 +952,9 @@ class ReactionAPIView(APIView):
 
         except Exception as e:
             return JsonResponse({'detail': str(e)}, status=500)
-        
 
+
+# 파일 업로드 API
 class FileUploadAPIView(APIView):
     """
     파일 업로드 API
@@ -967,6 +968,7 @@ class FileUploadAPIView(APIView):
             room = ChatRoom.objects.get(name=room_name, is_active=True)
             user = request.user
 
+            # 방 멤버 권한 확인
             if not RoomMember.objects.filter(room=room, user=user).exists():
                 return Response(
                     {'success': False, 'detail': '해당 방의 멤버가 아닙니다.'},
@@ -974,24 +976,25 @@ class FileUploadAPIView(APIView):
                 )
             
             uploaded_file = request.FILES.get('file')
-            print(uploaded_file)
             if not uploaded_file:
                 return Response(
                     {'success': False, 'detail': '업로드할 파일이 없습니다.'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
+            # 파일 타입 확인
             content_type, _ = mimetypes.guess_type(uploaded_file.name)
-
             is_image = content_type and content_type.startswith('image/')
             message_type = 'image' if is_image else 'file'
 
+            # 이미지 확장자 검증
             allowed_image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']
             file_extension = os.path.splitext(uploaded_file.name)[1].lower()
 
             if message_type == 'image' and file_extension not in allowed_image_extensions:
                 message_type = 'file'
             
+            # 채팅 메시지 생성
             chat_message = ChatMessage.objects.create(
                 room=room,
                 user=user,
@@ -1002,6 +1005,7 @@ class FileUploadAPIView(APIView):
                 file_size=uploaded_file.size,
             )
 
+            # WebSocket으로 실시간 브로드캐스트
             from channels.layers import get_channel_layer
             from asgiref.sync import async_to_sync
 
@@ -1039,7 +1043,6 @@ class FileUploadAPIView(APIView):
             })
 
         except Exception as e:
-            print(f"파일 업로드 오류: {e}")
             return Response(
                 {'success': False, 'detail': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
