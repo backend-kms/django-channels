@@ -44,9 +44,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 await self.handle_mark_read(username, data.get('message_id'))
                 
         except json.JSONDecodeError:
-            print("❌ JSON 파싱 오류")
+            print("JSON 파싱 오류")
         except Exception as e:
-            print(f"❌ 메시지 처리 오류: {e}")
+            print(f"메시지 처리 오류: {e}")
 
     # 메시지 타입별 핸들러
     async def handle_user_join(self, username):
@@ -69,7 +69,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "username": username
                 }
             )
-            print(f"✅ 입장 메시지 브로드캐스트 완료")
+            print(f"입장 메시지 브로드캐스트 완료")
             
             # 기존 메시지 읽음 수 업데이트 알림
             if updated_messages:
@@ -84,7 +84,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # 입장 시 전체 안읽은 메시지 수 업데이트
             await self.broadcast_unread_counts_update()
         except Exception as e:
-            print(f"❌ 입장 메시지 처리 오류: {e}")
+            print(f"입장 메시지 처리 오류: {e}")
             import traceback
             traceback.print_exc()
 
@@ -121,7 +121,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
             )
             
-            # 🔥 전체 안읽은 메시지 수 업데이트 브로드캐스트
+            # 전체 안읽은 메시지 수 업데이트 브로드캐스트
             await self.broadcast_unread_counts_update()
 
     async def handle_mark_read(self, username, message_id):
@@ -160,16 +160,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
         }))
     
     async def reaction_update(self, event):
+        """메시지 리액션 업데이트 전송"""
         await self.send(text_data=json.dumps({
-        'type': 'reaction_update',
-        'message_id': event['message_id'],
-        'action': event['action'],
-        'reaction_type': event['reaction_type'],
-        'reaction_counts': event['reaction_counts'],
-        'user': event['user']
-    }))
+            'type': 'reaction_update',
+            'message_id': event['message_id'],
+            'action': event['action'],
+            'reaction_type': event['reaction_type'],
+            'reaction_counts': event['reaction_counts'],
+            'user': event['user']
+        }))
         
     async def file_message(self, event):
+        """파일 메시지 전송"""
         await self.send(text_data=json.dumps({
             'type': 'file',
             'message_id': event['message_id'],
@@ -234,7 +236,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'user_id': user.id
             }
         except Exception as e:
-            print(f"❌ 메시지 저장 오류: {e}")
+            print(f"메시지 저장 오류: {e}")
             return None
 
     @database_sync_to_async
@@ -319,7 +321,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     }
                 )
         except Exception as e:
-            print(f"❌ 안읽은 메시지 수 브로드캐스트 오류: {e}")
+            print(f"안읽은 메시지 수 브로드캐스트 오류: {e}")
 
     @database_sync_to_async
     def get_room_unread_counts(self):
@@ -348,13 +350,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 
                 unread_data.append({
                     'username': member.user.username,
-                    'user_id': member.user.id,  # 🔥 user_id 추가
+                    'user_id': member.user.id,
                     'unread_count': unread_count
                 })
             
             return unread_data
         except Exception as e:
-            print(f"❌ 안읽은 메시지 수 계산 오류: {e}")
+            print(f"안읽은 메시지 수 계산 오류: {e}")
             return []
 
 
@@ -419,7 +421,7 @@ class GlobalNotificationConsumer(AsyncWebsocketConsumer):
                 "unread_counts": unread_counts
             }))
         except Exception as e:
-            print(f"❌ 전체 안읽은 메시지 수 전송 오류: {e}")
+            print(f"전체 안읽은 메시지 수 전송 오류: {e}")
 
     @database_sync_to_async
     def get_all_unread_counts(self):
@@ -457,5 +459,5 @@ class GlobalNotificationConsumer(AsyncWebsocketConsumer):
         except User.DoesNotExist:
             return {}
         except Exception as e:
-            print(f"❌ 전체 안읽은 메시지 수 계산 오류: {e}")
+            print(f"전체 안읽은 메시지 수 계산 오류: {e}")
             return {}
