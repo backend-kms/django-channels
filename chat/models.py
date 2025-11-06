@@ -63,6 +63,9 @@ class RoomMember(models.Model):
     def __str__(self):
         return f"{self.user.username} in {self.room.name}"
 
+def upload_to(instance, filename):
+    # media/chat_files/YYYY/MM/DD/filename
+    return f'media/chatting/{timezone.now().strftime("%Y/%m/%d")}/{filename}'
 
 class ChatMessage(models.Model):
     """채팅 메시지 모델"""
@@ -81,7 +84,9 @@ class ChatMessage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="작성일시")
     edited_at = models.DateTimeField(null=True, blank=True, verbose_name="수정일시")
     is_deleted = models.BooleanField(default=False, verbose_name="삭제 여부")
-    file_url = models.URLField(blank=True, verbose_name="파일 URL")
+    file = models.FileField(upload_to=upload_to, null=True, blank=True)
+    file_name = models.CharField(max_length=255, null=True, blank=True)
+    file_size = models.BigIntegerField(null=True, blank=True)
     reply_to = models.ForeignKey("self", on_delete=models.CASCADE, null=True, blank=True, related_name="replies", verbose_name="답장 대상")
     unread_count = models.PositiveIntegerField(default=0, verbose_name="안 읽은 수")
     total_members_at_time = models.PositiveIntegerField(default=0, verbose_name="메시지 전송 당시 총 멤버 수")
@@ -91,8 +96,11 @@ class ChatMessage(models.Model):
         ordering = ["created_at"]
 
     def __str__(self):
-        username = self.user.username if self.user else "시스템"
-        return f"{username}: {self.content[:50]}..."
+        if self.message_type == 'text':
+            return f"{self.user.username if self.user else 'System'}: {self.content[:50]}"
+        elif self.message_type in ['file', 'image']:
+            return f"{self.user.username}: {self.file_name}"
+        return f"{self.user.username if self.user else 'System'}: {self.message_type}"
 
     @property
     def author_name(self):
@@ -105,6 +113,18 @@ class ChatMessage(models.Model):
             return member.nickname if member.nickname else self.user.username
         except RoomMember.DoesNotExist:
             return self.user.username
+    
+    @property
+    def file_size_human(self):
+        """파일 크기를 읽기 쉬운 형태로 변환"""
+        if not self.file_size:
+            return ""
+        
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if self.file_size < 1024.0:
+                return f"{self.file_size:.1f}{unit}"
+            self.file_size /= 1024.0
+        return f"{self.file_size:.1f}TB"
 
     @property
     def is_read_by_all(self):
