@@ -540,6 +540,8 @@ function App() {
               username: user?.username,
             }));
             console.log('4. 첫 입장 - 입장 메시지 전송');
+          } else {
+            console.log('4. 재입장 - 입장 메시지 전송 안함');
           }
           
           // 🔥 글로벌 WebSocket으로 안읽은 수 새로고침 요청

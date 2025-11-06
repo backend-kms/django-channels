@@ -57,30 +57,36 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # 기존 메시지들의 읽음 수 업데이트
         updated_messages = await self.update_existing_messages_read_count()
         
-        # 입장 메시지 전송
-        message = f"{username}님이 입장했습니다."
-        await self.save_message(username, message, "system")
-        await self.channel_layer.group_send(
-            self.room_group_name, 
-            {
-                "type": "system_message", 
-                "message": message, 
-                "username": username
-            }
-        )
-        
-        # 기존 메시지 읽음 수 업데이트 알림
-        if updated_messages:
+        try:
+            # 입장 메시지 전송
+            message = f"{username}님이 입장했습니다."
+            await self.save_message(username, message, "system")
             await self.channel_layer.group_send(
-                self.room_group_name,
+                self.room_group_name, 
                 {
-                    "type": "messages_read_count_update",
-                    "updated_messages": updated_messages
+                    "type": "system_message", 
+                    "message": message, 
+                    "username": username
                 }
             )
-        
-        # 🔥 입장 시 전체 안읽은 메시지 수 업데이트
-        await self.broadcast_unread_counts_update()
+            print(f"✅ 입장 메시지 브로드캐스트 완료")
+            
+            # 기존 메시지 읽음 수 업데이트 알림
+            if updated_messages:
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        "type": "messages_read_count_update",
+                        "updated_messages": updated_messages
+                    }
+                )
+            
+            # 입장 시 전체 안읽은 메시지 수 업데이트
+            await self.broadcast_unread_counts_update()
+        except Exception as e:
+            print(f"❌ 입장 메시지 처리 오류: {e}")
+            import traceback
+            traceback.print_exc()
 
     async def handle_user_leave(self, username):
         """사용자 퇴장 처리"""
@@ -263,8 +269,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message.mark_as_read_by(user)
         except (User.DoesNotExist, ChatMessage.DoesNotExist):
             pass
-
-    async def update_online_status(self, is_online):
+    
+    @database_sync_to_async
+    def update_online_status(self, is_online):
         """온라인 상태 업데이트"""
         if not hasattr(self, 'username') or not self.username:
             return
@@ -318,8 +325,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 unread_count = ChatMessage.objects.filter(
                     room=room,
                     created_at__gt=last_read_time,
+                    message_type='text',
                     user__isnull=False,
-                    is_deleted=False
+                    is_deleted=False,
                 ).count()
                 
                 unread_data.append({
@@ -421,6 +429,7 @@ class GlobalNotificationConsumer(AsyncWebsocketConsumer):
                 unread_count = ChatMessage.objects.filter(
                     room=membership.room,
                     created_at__gt=last_read_time,
+                    message_type='text',
                     user__isnull=False,
                     is_deleted=False
                 ).count()
