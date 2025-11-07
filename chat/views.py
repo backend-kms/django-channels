@@ -1027,6 +1027,28 @@ class FileUploadAPIView(APIView):
                     'is_image': message_type == 'image'
                 }
             )
+
+            members = RoomMember.objects.filter(room=room).select_related('user', 'last_read_message')
+            for member in members:
+                last_read_time = (
+                    member.last_read_message.created_at 
+                    if member.last_read_message 
+                    else timezone.make_aware(datetime.min)
+                )
+                unread_count = ChatMessage.objects.filter(
+                    room=room,
+                    created_at__gt=last_read_time,
+                    user__isnull=False,
+                    is_deleted=False,
+                ).count()
+                async_to_sync(channel_layer.group_send)(
+                    f"user_{member.user.id}_global",
+                    {
+                        "type": "unread_count_update",
+                        "room_name": room_name,
+                        "unread_count": unread_count
+                    }
+                )
             
             return Response({
                 'success': True,
