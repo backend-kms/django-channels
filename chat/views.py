@@ -1,7 +1,7 @@
 from datetime import datetime
 import mimetypes
 import os
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -1047,3 +1047,166 @@ class FileUploadAPIView(APIView):
                 {'success': False, 'detail': str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+        
+
+def notification_test(request):
+    """알림 테스트 페이지 (오류 수정)"""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>알림 테스트</title>
+        <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+            #status { margin-top: 20px; padding: 10px; border: 1px solid #ccc; }
+            .success { background-color: #d4edda; }
+            .error { background-color: #f8d7da; }
+        </style>
+    </head>
+    <body>
+        <h1>푸시 알림 테스트 (오류 수정)</h1>
+        <button id="testButton">알림 테스트하기</button>
+        <button id="requestPermission">알림 권한 요청</button>
+        <button id="checkPermission">현재 권한 상태 확인</button>
+        <button id="forceNotification">강제 알림 (간단 버전)</button>
+        
+        <div id="status"></div>
+        
+        <script>
+            const statusDiv = document.getElementById('status');
+            
+            // 페이지 로드 시 전체 상태 확인
+            window.onload = function() {
+                checkAllStatus();
+            };
+            
+            function checkAllStatus() {
+                let status = '';
+                status += '<h3>현재 상태</h3>';
+                status += '<p>알림 권한: <strong>' + Notification.permission + '</strong></p>';
+                status += '<p>브라우저 지원: <strong>' + (('Notification' in window) ? '지원함' : '지원안함') + '</strong></p>';
+                status += '<p>현재 URL: <strong>' + window.location.href + '</strong></p>';
+                status += '<p>HTTPS 여부: <strong>' + (window.location.protocol === 'https:' ? 'HTTPS' : 'HTTP') + '</strong></p>';
+                statusDiv.innerHTML = status;
+            }
+            
+            // 권한 상태 확인
+            document.getElementById('checkPermission').onclick = checkAllStatus;
+            
+            // 권한 요청
+            document.getElementById('requestPermission').onclick = async function() {
+                try {
+                    console.log('권한 요청 시작...');
+                    const permission = await Notification.requestPermission();
+                    console.log('권한 결과:', permission);
+                    
+                    const className = permission === 'granted' ? 'success' : 'error';
+                    statusDiv.innerHTML = '<div class="' + className + '">권한 결과: <strong>' + permission + '</strong></div>';
+                    
+                    if (permission === 'granted') {
+                        alert('알림 권한이 허용되었습니다!');
+                    } else if (permission === 'denied') {
+                        alert('알림 권한이 거부되었습니다. 브라우저 설정에서 수동으로 허용해주세요.');
+                    } else {
+                        alert('알림 권한 요청이 무시되었습니다.');
+                    }
+                    
+                    setTimeout(checkAllStatus, 1000);
+                } catch (error) {
+                    console.error('권한 요청 에러:', error);
+                    statusDiv.innerHTML = '<div class="error">에러: ' + error.message + '</div>';
+                }
+            };
+            
+            // 기본 알림 테스트
+            document.getElementById('testButton').onclick = function() {
+                console.log('=== 알림 테스트 시작 ===');
+                console.log('권한 상태:', Notification.permission);
+                
+                if (Notification.permission !== 'granted') {
+                    statusDiv.innerHTML = '<div class="error">알림 권한이 허용되지 않았습니다. 현재 상태: ' + Notification.permission + '</div>';
+                    return;
+                }
+                
+                try {
+                    console.log('알림 생성 중...');
+                    
+                    const notification = new Notification('🔔 테스트 알림', {
+                        body: '이 알림이 보이면 성공입니다! 클릭해보세요.',
+                        tag: 'test-' + Date.now(),
+                        requireInteraction: false,
+                        silent: false
+                    });
+                    
+                    console.log('알림 객체 생성됨:', notification);
+                    
+                    // 이벤트 리스너 등록
+                    notification.onshow = function() {
+                        console.log('✅ 알림이 화면에 표시됨!');
+                        statusDiv.innerHTML = '<div class="success">✅ 알림이 성공적으로 표시되었습니다!</div>';
+                    };
+                    
+                    notification.onerror = function(error) {
+                        console.error('❌ 알림 표시 오류:', error);
+                        statusDiv.innerHTML = '<div class="error">❌ 알림 표시 중 오류 발생</div>';
+                    };
+                    
+                    notification.onclick = function() {
+                        console.log('알림 클릭됨');
+                        window.focus();
+                        notification.close();
+                    };
+                    
+                    notification.onclose = function() {
+                        console.log('알림이 닫힘');
+                    };
+                    
+                    // 5초 후 상태 확인
+                    setTimeout(function() {
+                        if (!statusDiv.innerHTML.includes('성공적으로 표시')) {
+                            statusDiv.innerHTML += '<div class="error">⚠️ 5초가 지났지만 onshow 이벤트가 발생하지 않았습니다.</div>';
+                        }
+                    }, 5000);
+                    
+                } catch (error) {
+                    console.error('알림 생성 실패:', error);
+                    statusDiv.innerHTML = '<div class="error">알림 생성 실패: ' + error.message + '</div>';
+                }
+            };
+            
+            // 강제 알림 (가장 간단한 버전)
+            document.getElementById('forceNotification').onclick = function() {
+                if (Notification.permission !== 'granted') {
+                    alert('먼저 알림 권한을 허용해주세요!');
+                    return;
+                }
+                
+                console.log('강제 알림 시도...');
+                
+                try {
+                    // 최소한의 옵션으로 알림 생성
+                    const simpleNotification = new Notification('간단한 알림');
+                    
+                    simpleNotification.onshow = function() {
+                        console.log('간단한 알림 표시됨');
+                        statusDiv.innerHTML = '<div class="success">간단한 알림이 표시되었습니다!</div>';
+                    };
+                    
+                    simpleNotification.onerror = function(error) {
+                        console.log('간단한 알림도 실패:', error);
+                        statusDiv.innerHTML = '<div class="error">간단한 알림도 실패했습니다.</div>';
+                    };
+                    
+                    console.log('간단한 알림 객체:', simpleNotification);
+                    
+                } catch (error) {
+                    console.error('간단한 알림 생성 오류:', error);
+                    statusDiv.innerHTML = '<div class="error">간단한 알림 생성 실패: ' + error.message + '</div>';
+                }
+            };
+        </script>
+    </body>
+    </html>
+    """
+    return HttpResponse(html_content)

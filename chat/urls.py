@@ -23,4 +23,6 @@ urlpatterns = [
     path('api/messages/<int:message_id>/reaction/', views.CreateReactionAPIView.as_view(), name='api_create_message_reaction'),
     path('api/messages/<int:message_id>/reactions/', views.ReactionAPIView.as_view(), name='api_message_reactions'),
     path('api/rooms/<str:room_name>/upload/', views.FileUploadAPIView.as_view(), name='file_upload'),
+
+    path('test-notification/', views.notification_test, name='notification_test'),
 ]
