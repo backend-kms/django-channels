@@ -37,19 +37,6 @@ const MessageReactions = ({ messageId, currentUser, reactions: initialReactions 
     }
   }, [initialReactions]);
 
-  // 반응 데이터 로드
-  const loadReactions = useCallback(async () => {
-    try {
-      const response = await axios.get(`/api/messages/${messageId}/reactions/`);
-      if (response.data) {
-        setReactions(response.data.reaction_counts);
-        setUserReaction(response.data.user_reaction);
-      }
-    } catch (error) {
-      console.error('반응 로드 실패:', error);
-    }
-  }, [messageId]);
-
   // 반응 토글
   const handleReactionClick = async (reactionType) => {
     if (isLoading) return;
@@ -90,11 +77,6 @@ const MessageReactions = ({ messageId, currentUser, reactions: initialReactions 
       setIsLoading(false);
     }
   };
-
-  // 컴포넌트 마운트 시 반응 데이터 로드
-  useEffect(() => {
-    loadReactions();
-  }, [loadReactions]);
 
   return (
     <div className="message-reactions" data-message-id={messageId}>
@@ -546,7 +528,7 @@ function App() {
             unreadCount: msg.unread_count || 0,
             isReadByAll: msg.is_read_by_all || false,
             userId: msg.user_id,
-            reactions: {}
+            reactions: msg.reactions || {}
           }));
           setMessages(loadedMessages);
 

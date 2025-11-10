@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from django.contrib.auth import authenticate, login
 from django.utils import timezone
 
-from chat.models import ChatMessage, PushSubscription
+from chat.models import ChatMessage, MessageReaction, PushSubscription
 
 
 class LoginRequestSerializer(serializers.Serializer):
@@ -25,6 +25,7 @@ class ChatMessageSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username")
     user_id = serializers.IntegerField(source="user.id")
     room_name = serializers.CharField(source="room.name")
+    reactions=serializers.SerializerMethodField()
 
     class Meta:
         model = ChatMessage
@@ -40,9 +41,23 @@ class ChatMessageSerializer(serializers.ModelSerializer):
             "message_type",
             "created_at",
             "edited_at",
+            "reactions",
             "unread_count",
             "is_read_by_all",
         ]
+    
+    def get_reactions(self, obj):
+        # 각 반응별 개수 집계
+        reaction_counts = {
+            "like": 0,
+            "good": 0,
+            "check": 0,
+        }
+        reactions = MessageReaction.objects.filter(message=obj)
+        for r in reactions:
+            if r.reaction_type in reaction_counts:
+                reaction_counts[r.reaction_type] += 1
+        return reaction_counts
 class PushSubscriptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = PushSubscription
