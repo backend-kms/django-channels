@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from django.contrib.auth import authenticate, login
 from django.utils import timezone
 
-from chat.models import ChatMessage
+from chat.models import ChatMessage, PushSubscription
 
 
 class LoginRequestSerializer(serializers.Serializer):
@@ -43,3 +43,7 @@ class ChatMessageSerializer(serializers.ModelSerializer):
             "unread_count",
             "is_read_by_all",
         ]
+class PushSubscriptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PushSubscription
+        fields = ['id', 'user', 'endpoint', 'p256dh', 'auth', 'created_at']

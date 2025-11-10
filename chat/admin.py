@@ -2,7 +2,7 @@ from django.contrib import admin
 
 # Register your models here.
 from django.contrib import admin
-from .models import ChatRoom, MessageReaction, RoomMember, ChatMessage, UserProfile
+from .models import ChatRoom, MessageReaction, PushSubscription, RoomMember, ChatMessage, UserProfile
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
@@ -127,3 +127,9 @@ class MessageReactionAdmin(admin.ModelAdmin):
     list_filter = ['reaction_type', 'created_at']
     search_fields = ['message__id', 'user__username', 'reaction_type']
     ordering = ['-created_at']
+
+@admin.register(PushSubscription)
+class PushSubscriptionAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'endpoint', 'p256dh', 'p256dh', 'created_at')
+    search_fields = ('endpoint', 'user__username')
+    list_filter = ('user', 'created_at')

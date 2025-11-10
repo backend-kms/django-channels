@@ -111,6 +111,18 @@ unfold_settings = {
                     },
                 ],
             },
+            {
+                "title": _("푸시 알림 관리"),
+                "separator": True,
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": _("푸시 구독"),
+                        "icon": "notifications",
+                        "link": reverse_lazy("admin:chat_pushsubscription_changelist"),
+                    },
+                ],
+            }
         ]
     }
 }

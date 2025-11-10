@@ -11,3 +11,48 @@
 4. 추후 메시지가 오면 서버가 브라우저에 알림 전송
 5. 브라우저가 닫혀 있어도 알림은 떠야함
 
+[카카오톡 스타일 푸시 알림 기능 구현 전체 흐름 정리]
+
+1. 목표
+- 채팅방에서 메시지가 오면, "현재 방에 접속 중이 아닌" 사용자에게만
+- 브라우저가 꺼져 있거나, 백그라운드이거나, 다른 사이트를 보고 있어도
+- 푸시 알림이 뜨도록 구현
+
+2. VAPID 키 생성 및 환경설정
+- npx web-push generate-vapid-keys --json 명령어로 publicKey, privateKey 생성
+- .env 파일에 아래처럼 저장
+  REACT_APP_VAPID_PUBLIC_KEY=...
+  REACT_APP_VAPID_PRIVATE_KEY=...
+- settings.py에서 os.environ.get으로 불러옴
+
+3. 프론트엔드
+- service_worker.js에서 push 이벤트와 notificationclick 이벤트 처리
+- 푸시 구독 시 VAPID publicKey 사용
+- 구독 정보를 서버로 POST (api/save-subscription/)
+
+4. 백엔드(Django)
+- PushSubscription 모델 생성 (user, endpoint, p256dh, auth 등)
+- PushSubscriptionSerializer, SaveSubscriptionView(APIView) 구현
+- chat/urls.py에 api/save-subscription/ 등록
+
+5. pywebpush 설치 및 send_web_push 함수 구현
+- pip install --upgrade pywebpush
+- chat/utils.py에 send_web_push 함수 구현
+
+6. 푸시 알림 발송 로직 consumers.py에 연결
+- send_push_to_offline_members(room, sender_user, message) 함수 구현
+  (RoomMember 중 is_currently_in_room=False인 유저만 대상으로 PushSubscription 조회 후 send_web_push 호출)
+- handle_text_message에서 메시지 저장 후, 위 함수 호출
+  (user, room 객체를 await database_sync_to_async로 가져온 뒤 사용)
+
+7. 최종 동작 흐름
+- 사용자가 채팅방에 메시지 입력 → handle_text_message 실행
+- 메시지 저장 및 채팅방 내 실시간 브로드캐스트
+- 현재 방에 접속 중이 아닌 멤버들에게만 푸시 알림 전송
+- 브라우저가 꺼져 있거나, 백그라운드여도 알림이 뜸
+- 알림 클릭 시 해당 채팅방으로 이동
+
+8. 기타
+- 서비스워커 sw.js에서 알림 클릭 시 data.url로 이동하도록 구현
+- 모든 환경변수/키/코드는 공백, 줄바꿈, 따옴표 없이 정확히 입력해야 함
+- pywebpush 버전은 1.14.0 이상이어야 함

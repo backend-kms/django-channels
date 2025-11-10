@@ -197,3 +197,17 @@ class MessageReaction(models.Model):
 
     def __str__(self):
         return f"{self.user.username} reacted {self.reaction_type} to message {self.message.id}"
+    
+class PushSubscription(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, verbose_name="사용자")
+    endpoint = models.TextField(unique=True, verbose_name="엔드포인트") # 브라우저가 푸시 알림을 받을 때 사용하는 고유 url, 서버가 이 주소로 푸시 메세지를 전송
+    p256dh = models.CharField(max_length=255, verbose_name="p256dh 키") # 푸시 메세지 암호화에 사용되는 공개키, 브라우저가 구독할 때 생성되며, 서버가 메세지를 암호화할 때 필요
+    auth = models.CharField(max_length=255, verbose_name="auth 키") # 푸시 메세지 암호화에 추가로 사용되는 인증키, 브라우저가 구독할 때 생성됨
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="생성일시")
+
+    class Meta:
+        verbose_name = "푸시 구독"
+        verbose_name_plural = "푸시 구독들"
+
+    def __str__(self):
+        return f"{self.user.username if self.user else '익명'}: {self.endpoint[:30]}..."

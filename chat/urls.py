@@ -25,4 +25,5 @@ urlpatterns = [
     path('api/rooms/<str:room_name>/upload/', views.FileUploadAPIView.as_view(), name='file_upload'),
 
     path('test-notification/', views.notification_test, name='notification_test'),
+    path('api/save-subscription/', views.SaveSubscriptionView.as_view(), name='save-subscription'),
 ]

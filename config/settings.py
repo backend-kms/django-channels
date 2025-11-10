@@ -36,7 +36,8 @@ SECRET_KEY = env('SECRET_KEY')
 SERVER_MODE = env('SERVER_MODE')
 DEBUG = env.bool('DEBUG_MODE')
 ALLOWED_HOSTS = ["*"]
-
+VAPID_PUBLIC_KEY = os.environ.get("REACT_APP_VAPID_PUBLIC_KEY")
+VAPID_PRIVATE_KEY = os.environ.get("REACT_APP_VAPID_PRIVATE_KEY")
 
 # Application definition
 INSTALLED_APPS = [

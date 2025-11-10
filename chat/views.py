@@ -13,8 +13,9 @@ from chat.serializers import (
     ChatMessageSerializer,
     LoginRequestSerializer,
     LoginResponseSerializer,
+    PushSubscriptionSerializer,
 )
-from .models import ChatRoom, ChatMessage, MessageReaction, RoomMember, UserProfile
+from .models import ChatRoom, ChatMessage, MessageReaction, PushSubscription, RoomMember, UserProfile
 from django.utils import timezone
 from django.contrib.auth import authenticate
 from drf_spectacular.utils import extend_schema
@@ -1232,3 +1233,23 @@ def notification_test(request):
     </html>
     """
     return HttpResponse(html_content)
+
+
+class SaveSubscriptionView(APIView):
+    def post(self, request):
+        data = request.data
+        endpoint = data.get('endpoint')
+        keys = data.get('keys', {})
+        p256dh = keys.get('p256dh')
+        auth = keys.get('auth')
+        user = request.user if request.user.is_authenticated else None
+
+        if not endpoint or not p256dh or not auth:
+            return Response({'error': 'Invalid data'}, status=status.HTTP_400_BAD_REQUEST)
+
+        sub, created = PushSubscription.objects.update_or_create(
+            endpoint=endpoint,
+            defaults={'user': user, 'p256dh': p256dh, 'auth': auth}
+        )
+        serializer = PushSubscriptionSerializer(sub)
+        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
+import { subscribeUserToPush } from './subscribePush';
 import './App.css';
 
 // API 설정
@@ -1219,6 +1220,9 @@ function App() {
       <header className="app-header">
         <h1>Test 채팅</h1>
         <div className="header-actions">
+          <button onClick={subscribeUserToPush}>
+            푸시 알림 구독하기
+          </button>
           <div className="online-stats">
             <span className="stat-icon stat-text">🌱 온라인 수: </span>
             <span className="stat-text">  {stats.online_users || 0}</span>

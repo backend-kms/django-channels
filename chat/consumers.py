@@ -4,6 +4,8 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import User
 from .models import ChatMessage, ChatRoom, RoomMember
+from chat.models import PushSubscription
+from chat.utils import send_web_push
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -123,6 +125,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             
             # 전체 안읽은 메시지 수 업데이트 브로드캐스트
             await self.broadcast_unread_counts_update()
+            user = await database_sync_to_async(User.objects.get)(username=username)
+            room = await database_sync_to_async(ChatRoom.objects.get)(name=self.room_name)
+            await send_push_to_offline_members(room, user, message)
 
     async def handle_mark_read(self, username, message_id):
         """읽음 처리"""
@@ -461,3 +466,30 @@ class GlobalNotificationConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             print(f"전체 안읽은 메시지 수 계산 오류: {e}")
             return {}
+        
+@database_sync_to_async
+def send_push_to_offline_members(room, sender_user, message):
+    from chat.models import RoomMember, PushSubscription
+    from chat.utils import send_web_push
+    import json
+
+    targets = RoomMember.objects.filter(
+        room=room
+    ).exclude(user=sender_user).filter(is_currently_in_room=False)
+
+    for member in targets:
+        subs = PushSubscription.objects.filter(user=member.user)
+        for sub in subs:
+            subscription_info = {
+                "endpoint": sub.endpoint,
+                "keys": {
+                    "p256dh": sub.p256dh,
+                    "auth": sub.auth
+                }
+            }
+            payload = json.dumps({
+                "title": f"{room.name} 새 메세지 알림",
+                "body": f"{sender_user.username}: {message}",
+                # "url": f"/chat/api/rooms/{room.name}/messages/"
+            })
+            send_web_push(subscription_info, payload)
