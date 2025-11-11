@@ -69,7 +69,22 @@ class LoginAPIView(APIView):
                     profile.is_online = True
                     profile.last_activity = timezone.now()
                     profile.save()
+                
+                online_users_count = UserProfile.objects.filter(is_online=True).count()
+                try:
+                    from channels.layers import get_channel_layer
+                    from asgiref.sync import async_to_sync
 
+                    channel_layer = get_channel_layer()
+                    async_to_sync(channel_layer.group_send)(
+                        "global",
+                        {
+                            "type": "online_stats",
+                            "online_users": online_users_count
+                        }
+                    )
+                except:
+                    raise Exception("채널 레이어 오류 발생")
                 return Response({
                     "success": True,
                     "access_token": access_token,
@@ -120,6 +135,22 @@ class LogoutAPIView(APIView):
                     token.blacklist()
                 except:
                     pass
+            online_users_count = UserProfile.objects.filter(is_online=True).count()
+
+            try:
+                from channels.layers import get_channel_layer
+                from asgiref.sync import async_to_sync
+
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.group_send)(
+                    "global",
+                    {
+                        "type": "online_stats",
+                        "online_users": online_users_count
+                    }
+                )
+            except:
+                raise Exception("채널 레이어 오류 발생")
 
             return Response({"success": True, "message": "로그아웃되었습니다."})
 
@@ -335,18 +366,36 @@ class RoomCreateAPIView(APIView):
                 room=room, user=request.user, is_admin=True, last_seen=timezone.now()
             )
 
-            return Response(
-                {
-                    "success": True,
-                    "room": {
+            room_data = {
                         "id": room.id,
                         "name": room.name,
                         "description": room.description,
                         "created_at": room.created_at.isoformat(),
                         "created_by": room.created_by.username,
                         "max_members": room.max_members,
-                        "can_delete": True,
-                    },
+                    }
+            try:
+                from channels.layers import get_channel_layer
+                from asgiref.sync import async_to_sync
+                
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.group_send)(
+                    "global",
+                    {
+                        "type": "room_created",
+                        "room": room_data,
+                    }
+                )
+            except:
+                raise Exception("채널 레이어 오류 발생")
+            
+            room_data = room_data.update({
+                "can_delete": True,
+            })
+            return Response(
+                {
+                    "success": True,
+                    "room": room_data,
                     "message": f"{room_name} 채팅방이 성공적으로 생성되었습니다.",
                 },
                 status=status.HTTP_201_CREATED,
@@ -535,6 +584,15 @@ class JoinRoomAPIView(APIView):
                     "unread_count": unread_count
                 }
             )
+            member_count = RoomMember.objects.filter(room_id=room_id).count()
+            async_to_sync(channel_layer.group_send)(
+                "global",
+                {
+                    "type": "room_member_update",
+                    "room_id": room_id,
+                    "member_count": member_count
+                }
+            )
         except Exception as e:
             print(f"입장 시 글로벌 WebSocket 브로드캐스트 오류: {e}")
 
@@ -655,6 +713,21 @@ class LeaveRoomAPIView(APIView):
                     first_member.is_admin = True
                     first_member.save()
 
+                try:
+                    from asgiref.sync import async_to_sync
+                    from channels.layers import get_channel_layer
+
+                    member_count = RoomMember.objects.filter(room_id=room_id).count()
+                    async_to_sync(channel_layer.group_send)(
+                        "global",
+                        {
+                            "type": "room_member_update",
+                            "room_id": room_id,
+                            "member_count": member_count
+                        }
+                    )
+                except Exception as e:
+                    print(f"퇴장 시 글로벌 WebSocket 브로드캐스트 오류: {e}")
                 return Response({
                     "success": True,
                     "message": f"{request.user.username}님이 퇴장했습니다.",

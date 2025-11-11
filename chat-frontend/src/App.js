@@ -230,6 +230,34 @@ function App() {
             unread_count: data.unread_counts[room.id] || 0
           }))
         );
+      } else if (data.type === 'room_created') {
+        setRooms(prevRooms => {
+          if (prevRooms.some(room => room.id === data.room.id)) {
+            return prevRooms;
+          }
+          return [data.room, ...prevRooms];
+        });
+      } else if (data.type === 'online_stats') {
+        setStats(prev => ({
+          ...prev,
+          online_users: data.online_users
+        }));
+      } else if (data.type === 'room_member_update') {
+        console.log("room_member_update 수신", data);
+        setRooms(prevRooms =>
+          prevRooms.map(room =>
+            room.id === data.room_id
+              ? { ...room, member_count: data.member_count }
+              : room
+          )
+        );
+        setMyRooms(prevRooms =>
+          prevRooms.map(room =>
+            room.id === data.room_id
+              ? { ...room, member_count: data.member_count }
+              : room
+          )
+        );
       }
     };
     
@@ -960,21 +988,21 @@ function App() {
     fetchStats();
   }, [fetchRooms, fetchMyRooms, fetchStats]);
 
-  // 3. 정기 데이터 새로고침 (인증 상태 확인 후)
-  useEffect(() => {
-    if (!isAuthenticated) return;
+  // // 3. 정기 데이터 새로고침 (인증 상태 확인 후)
+  // useEffect(() => {
+  //   if (!isAuthenticated) return;
 
-    const interval = setInterval(() => {
-      fetchRooms();
-      fetchMyRooms();
-      fetchStats();
-      if (currentRoom) {
-        fetchCurrentRoomInfo(currentRoom);
-      }
-    }, 30000);
+  //   const interval = setInterval(() => {
+  //     fetchRooms();
+  //     fetchMyRooms();
+  //     fetchStats();
+  //     if (currentRoom) {
+  //       fetchCurrentRoomInfo(currentRoom);
+  //     }
+  //   }, 100000);
 
-    return () => clearInterval(interval);
-  }, [isAuthenticated, fetchRooms, fetchMyRooms, fetchStats, currentRoom, fetchCurrentRoomInfo]);
+  //   return () => clearInterval(interval);
+  // }, [isAuthenticated, fetchRooms, fetchMyRooms, fetchStats, currentRoom, fetchCurrentRoomInfo]);
 
   // 4. WebSocket 정리 (컴포넌트 언마운트 시)
   useEffect(() => {

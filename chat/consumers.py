@@ -383,11 +383,9 @@ class GlobalNotificationConsumer(AsyncWebsocketConsumer):
         # 사용자별 글로벌 그룹에 참가 (user_id 사용)
         self.user_group_name = f"user_{self.user_id}_global"
         
-        await self.channel_layer.group_add(
-            self.user_group_name,
-            self.channel_name
-        )
-        
+        await self.channel_layer.group_add(self.user_group_name, self.channel_name)
+        await self.channel_layer.group_add("global", self.channel_name)  # 단일 그룹 추가
+
         await self.accept()
         
         # 연결 즉시 현재 안읽은 메시지 수 전송
@@ -396,10 +394,8 @@ class GlobalNotificationConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         """WebSocket 연결 해제"""
         if hasattr(self, 'user_group_name'):
-            await self.channel_layer.group_discard(
-                self.user_group_name,
-                self.channel_name
-            )
+            await self.channel_layer.group_discard(self.user_group_name, self.channel_name)
+            await self.channel_layer.group_discard("global", self.channel_name)
 
     async def receive(self, text_data):
         """클라이언트 메시지 수신 (필요 시 확장 가능)"""
@@ -428,6 +424,25 @@ class GlobalNotificationConsumer(AsyncWebsocketConsumer):
             }))
         except Exception as e:
             print(f"전체 안읽은 메시지 수 전송 오류: {e}")
+
+    async def room_created(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "room_created",
+            "room": event["room"]
+        }))
+
+    async def online_stats(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "online_stats",
+            "online_users": event["online_users"]
+        }))
+
+    async def room_member_update(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "room_member_update",
+            "room_id": event["room_id"],
+            "member_count": event["member_count"]
+        }))
 
     @database_sync_to_async
     def get_all_unread_counts(self):
