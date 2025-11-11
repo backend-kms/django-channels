@@ -700,6 +700,21 @@ class LeaveRoomAPIView(APIView):
             if member_count == 0:
                 room.is_active = False
                 room.save()
+
+                try:
+                    from channels.layers import get_channel_layer
+                    from asgiref.sync import async_to_sync
+                    
+                    channel_layer = get_channel_layer()
+                    async_to_sync(channel_layer.group_send)(
+                        "global",
+                        {
+                            "type": "room_created",
+                            "room": {"id": room_id, "deactivated": True},
+                        }
+                    )
+                except:
+                    raise Exception("채널 레이어 오류 발생")
                 return Response({
                     "success": True,
                     "message": f"{request.user.username}님이 퇴장했습니다. 방이 비활성화되었습니다.",

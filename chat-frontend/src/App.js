@@ -231,12 +231,20 @@ function App() {
           }))
         );
       } else if (data.type === 'room_created') {
-        setRooms(prevRooms => {
-          if (prevRooms.some(room => room.id === data.room.id)) {
-            return prevRooms;
-          }
-          return [data.room, ...prevRooms];
-        });
+        if (data.room && data.room.deactivated) {
+          setRooms(prevRooms => prevRooms.filter(room => room.id !== data.room.id));
+          setMyRooms(prevRooms => prevRooms.filter(room => room.id !== data.room.id));
+          return;
+        }
+        // 새 방 생성 실시간 반영
+        if (data.room && data.room.id) {
+          setRooms(prevRooms => {
+            if (prevRooms.some(room => room.id === data.room.id)) {
+              return prevRooms;
+            }
+            return [data.room, ...prevRooms];
+          });
+        }
       } else if (data.type === 'online_stats') {
         setStats(prev => ({
           ...prev,
