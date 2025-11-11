@@ -123,7 +123,7 @@ function App() {
   const [stats, setStats] = useState({});
   const [currentRoom, setCurrentRoom] = useState('');
   const [currentRoomInfo, setCurrentRoomInfo] = useState(null);
-  const [roomName, setRoomName] = useState('');
+  const [roomId, setRoomId] = useState('');
   const [showCreateRoom, setShowCreateRoom] = useState(false);
   const [socket, setSocket] = useState(null);
   const globalSocketRef = useRef(null); // 🔥 useRef로 변경
@@ -218,7 +218,7 @@ function App() {
         // 특정 방의 안읽은 메시지 수 업데이트
         setMyRooms(prevRooms => 
           prevRooms.map(room => 
-            room.name === data.room_name 
+            parseInt(room.id) === parseInt(data.room_id)
               ? { ...room, unread_count: data.unread_count }
               : room
           )
@@ -228,7 +228,7 @@ function App() {
         setMyRooms(prevRooms => 
           prevRooms.map(room => ({
             ...room,
-            unread_count: data.unread_counts[room.name] || 0
+            unread_count: data.unread_counts[room.id] || 0
           }))
         );
       }
@@ -291,11 +291,11 @@ function App() {
     }
   }, []);
 
-  const fetchCurrentRoomInfo = useCallback(async (roomName) => {
-    if (!roomName || !isAuthenticated) return;
+  const fetchCurrentRoomInfo = useCallback(async (roomId) => {
+    if (!roomId || !isAuthenticated) return;
     
     try {
-      const response = await axios.get(`/api/rooms/${roomName}/info/`);
+      const response = await axios.get(`/api/rooms/${roomId}/info/`);
       if (response.data.success) {
         setCurrentRoomInfo(response.data.room);
       }
@@ -304,16 +304,16 @@ function App() {
     }
   }, [isAuthenticated]);
 
-  const markAsRead = useCallback(async (roomName) => {
-    if (!roomName || !isAuthenticated) return;
+  const markAsRead = useCallback(async (roomId) => {
+    if (!roomId || !isAuthenticated) return;
     
     try {
-      await axios.post(`/api/rooms/${roomName}/mark-read/`);
+      await axios.post(`/api/rooms/${roomId}/mark-read/`);
       
         // 읽음 처리 후 myRooms의 안읽은 수 리셋
         setMyRooms(prevRooms => 
           prevRooms.map(room => 
-            room.name === roomName 
+            room.id === roomId 
               ? { ...room, unread_count: 0 }
               : room
           )
@@ -380,7 +380,7 @@ function App() {
     if (data.username !== user?.username) {
       setMyRooms(prevRooms => 
         prevRooms.map(room => {
-          if (room.name === currentRoom) {
+          if (room.id === currentRoom) {
             return {
               ...room,
               last_message: data.message,
@@ -422,7 +422,7 @@ function App() {
     setTimeout(() => markAsRead(currentRoom), 100);
   };
 
-  const handleSystemMessage = (data, roomName) => {
+  const handleSystemMessage = (data, roomId) => {
     const systemMessage = {
       id: Date.now() + Math.random(),
       text: data.message,
@@ -438,7 +438,7 @@ function App() {
     setMessages(prev => [...prev, systemMessage]);
     
     if (data.message.includes('입장') || data.message.includes('퇴장')) {
-      setTimeout(() => fetchCurrentRoomInfo(roomName), 500);
+      setTimeout(() => fetchCurrentRoomInfo(roomId), 500);
     }
   };
 
@@ -545,24 +545,24 @@ function App() {
     }
   };
 
-  const handleJoinRoom = async (targetRoomName) => {
+  const handleJoinRoom = async (targetRoomId) => {
     try {
       if (!isAuthenticated) {
         alert('로그인이 필요합니다.');
         return;
       }
 
-      console.log('1. 방 입장 시도:', targetRoomName);
+      console.log('1. 방 입장 시도:', targetRoomId);
 
       // 방 입장 API 호출
-      const joinResponse = await axios.post(`/api/rooms/${targetRoomName}/join/?page=1&page_size=30`);
+      const joinResponse = await axios.post(`/api/rooms/${targetRoomId}/join/?page=1&page_size=30`);
       
       if (joinResponse.data.success) {
         console.log('2. 서버 입장 성공');
         const isFirstJoin = joinResponse.data.is_first;
         
         // 채팅 메시지 히스토리 로드
-        const messagesResponse = await axios.get(`/api/rooms/${targetRoomName}/messages/`);
+        const messagesResponse = await axios.get(`/api/rooms/${targetRoomId}/messages/`);
         if (messagesResponse.data) {
           const loadedMessages = messagesResponse.data.results.map(msg => ({
             id: msg.id,
@@ -594,23 +594,23 @@ function App() {
             pageSize: 30
           });
 
-          setTimeout(() => markAsRead(targetRoomName), 300);
+          setTimeout(() => markAsRead(targetRoomId), 300);
         }
 
         // 방 입장 성공 시 해당 방의 안읽은 메시지 수 리셋
         setMyRooms(prevRooms => 
           prevRooms.map(room => 
-            room.name === targetRoomName 
+            room.id === targetRoomId 
               ? { ...room, unread_count: 0 }
               : room
           )
         );
 
-        setCurrentRoom(targetRoomName);
+        setCurrentRoom(targetRoomId);
         setCurrentRoomInfo(joinResponse.data.room);
         
         // WebSocket 연결
-        const ws = new WebSocket(`ws://localhost:8000/ws/chat/${targetRoomName}/`);
+        const ws = new WebSocket(`ws://localhost:8000/ws/chat/${targetRoomId}/`);
         
         ws.onopen = () => {
           console.log('3. WebSocket 연결됨');
@@ -643,7 +643,7 @@ function App() {
           } else if (data.type === 'chat') {
             handleChatMessage(data);
           } else if (data.type === 'system') {
-            handleSystemMessage(data, targetRoomName);
+            handleSystemMessage(data, targetRoomId);
           } else if (data.type === 'reaction_update') {
             handleReactionUpdate(data);
           } else if (data.type === 'file') { 
@@ -695,11 +695,11 @@ function App() {
   const handleLeaveRoom = async () => {
     if (!currentRoom) return;
 
-    if (!window.confirm(`'${currentRoom}' 방에서 나가시겠습니까?`)) {
+    if (!window.confirm(`'${currentRoomInfo?.name || currentRoom}' 방에서 나가시겠습니까?`)) {
       return;
     }
 
-    const leavingRoomName = currentRoom;
+    const leavingRoomId = currentRoom;
 
     try {
       if (socket && connected) {
@@ -710,7 +710,7 @@ function App() {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
-      await axios.post(`/api/rooms/${leavingRoomName}/leave/`);
+      await axios.post(`/api/rooms/${leavingRoomId}/leave/`);
       fetchMyRooms();
     } catch (error) {
       console.error('서버 방 퇴장 실패:', error);
@@ -728,20 +728,20 @@ function App() {
     }
   };
 
-  const handleLeaveMyRoom = async (roomName) => {
-    if (!window.confirm(`'${roomName}' 방에서 나가시겠습니까?`)) {
+  const handleLeaveMyRoom = async (roomId) => {
+    if (!window.confirm(`'${roomId}' 방에서 나가시겠습니까?`)) {
       return;
     }
     
     try {
-      if (currentRoom === roomName && socket && connected) {
+      if (currentRoom === roomId && socket && connected) {
         socket.send(JSON.stringify({
           type: 'user_leave',
           username: user?.username
         }));
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        await axios.post(`/api/rooms/${roomName}/leave/`);
+        await axios.post(`/api/rooms/${roomId}/leave/`);
         
         if (socket) {
           socket.close();
@@ -753,7 +753,7 @@ function App() {
         setConnected(false);
         setSocket(null);
       } else {
-        const tempWs = new WebSocket(`ws://localhost:8000/ws/chat/${roomName}/`);
+        const tempWs = new WebSocket(`ws://localhost:8000/ws/chat/${roomId}/`);
         
         tempWs.onopen = () => {
           tempWs.send(JSON.stringify({
@@ -770,7 +770,7 @@ function App() {
           console.error('임시 WebSocket 오류:', error);
         };
         
-        await axios.post(`/api/rooms/${roomName}/leave/`);
+        await axios.post(`/api/rooms/${roomId}/leave/`);
       }
       
       fetchMyRooms();
@@ -783,11 +783,11 @@ function App() {
   };
 
   const handleDisconnectRoom = async () => {
-    const roomName = currentRoom;
+    const roomId = currentRoom;
 
     try {
-      if (roomName && isAuthenticated) {
-        await axios.post(`/api/rooms/${roomName}/disconnect/`);
+      if (roomId && isAuthenticated) {
+        await axios.post(`/api/rooms/${roomId}/disconnect/`);
       }
     } catch (error) {
       console.error('서버 연결 해제 알림 실패:', error);
@@ -811,8 +811,8 @@ function App() {
         handleLogin();
       } else if (currentRoom) {
         handleSendMessage();
-      } else if (roomName) {
-        handleJoinRoom(roomName);
+      } else if (roomId) {
+        handleJoinRoom(roomId);
       }
     }
   };
@@ -1058,7 +1058,7 @@ function App() {
       <div className="app chat-app">
         <div className="chat-header">
           <div className="room-info">
-            <h1>💬 {currentRoom}</h1>
+            <h1>💬 {currentRoomInfo?.name || currentRoom}</h1>
             <div className="room-details">
               <span className={`status ${connected ? 'online' : 'offline'}`}>
                 {connected ? '🟢 연결됨' : '🔴 연결 안됨'}
@@ -1353,13 +1353,13 @@ function App() {
                   <div className="room-actions">
                     <button 
                       className={`btn btn-sm ${room.unread_count > 0 ? 'btn-primary btn-glow' : 'btn-primary'}`}
-                      onClick={() => handleJoinRoom(room.name)}
+                      onClick={() => handleJoinRoom(room.id)}
                     >
                       {room.unread_count > 0 ? `⚡ 새 메시지 ${room.unread_count}개` : '열기'}
                     </button>
                     <button 
                       className="btn btn-secondary btn-sm"
-                      onClick={() => handleLeaveMyRoom(room.name)}
+                      onClick={() => handleLeaveMyRoom(room.id)}
                     >
                       나가기
                     </button>
@@ -1449,8 +1449,8 @@ function App() {
                     <button 
                       className="btn btn-primary btn-sm"
                       onClick={() => {
-                        setRoomName(room.name);
-                        handleJoinRoom(room.name);
+                        setRoomId(room.id);
+                        handleJoinRoom(room.id);
                       }}
                       disabled={!isAuthenticated}
                     >

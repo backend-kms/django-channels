@@ -16,18 +16,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
     
     async def connect(self):
         """WebSocket 연결 설정"""
-        self.room_name = self.scope["url_route"]["kwargs"]["room_name"]
-        self.room_group_name = f"chat_{self.room_name}"
+        self.room_id = self.scope["url_route"]["kwargs"]["room_id"]
+        self.room_group_id = f"chat_{self.room_id}"
         self.username = None
 
-        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+        await self.channel_layer.group_add(self.room_group_id, self.channel_name)
         await self.accept()
 
     async def disconnect(self, close_code):
         """WebSocket 연결 해제"""
         if hasattr(self, 'username') and self.username:
             await self.update_online_status(False)
-        await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+        await self.channel_layer.group_discard(self.room_group_id, self.channel_name)
 
     async def receive(self, text_data):
         """클라이언트로부터 메시지 수신 처리"""
@@ -64,7 +64,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message = f"{username}님이 입장했습니다."
             await self.save_message(username, message, "system")
             await self.channel_layer.group_send(
-                self.room_group_name, 
+                self.room_group_id, 
                 {
                     "type": "system_message", 
                     "message": message, 
@@ -76,7 +76,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # 기존 메시지 읽음 수 업데이트 알림
             if updated_messages:
                 await self.channel_layer.group_send(
-                    self.room_group_name,
+                    self.room_group_id,
                     {
                         "type": "messages_read_count_update",
                         "updated_messages": updated_messages
@@ -95,7 +95,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message = f"{username}님이 퇴장했습니다."
         await self.save_message(username, message, "system")
         await self.channel_layer.group_send(
-            self.room_group_name, 
+            self.room_group_id, 
             {
                 "type": "system_message", 
                 "message": message, 
@@ -111,7 +111,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if message_data:
             # 채팅방 내 메시지 브로드캐스트
             await self.channel_layer.group_send(
-                self.room_group_name, 
+                self.room_group_id, 
                 {
                     "type": "chat_message", 
                     "message": message, 
@@ -126,7 +126,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # 전체 안읽은 메시지 수 업데이트 브로드캐스트
             await self.broadcast_unread_counts_update()
             user = await database_sync_to_async(User.objects.get)(username=username)
-            room = await database_sync_to_async(ChatRoom.objects.get)(name=self.room_name)
+            room = await database_sync_to_async(ChatRoom.objects.get)(id=self.room_id)
             await send_push_to_offline_members(room, user, message)
 
     async def handle_mark_read(self, username, message_id):
@@ -198,7 +198,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """기본 메시지 저장"""
         try:
             user = User.objects.get(username=username)
-            room = ChatRoom.objects.get(name=self.room_name)
+            room = ChatRoom.objects.get(id=self.room_id)
             return ChatMessage.objects.create(
                 room=room,
                 user=user,
@@ -213,7 +213,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """메시지 저장 + 실시간 접속자 읽음 처리"""
         try:
             user = User.objects.get(username=username)
-            room = ChatRoom.objects.get(name=self.room_name)
+            room = ChatRoom.objects.get(id=self.room_id)
             
             # 메시지 생성
             chat_message = ChatMessage.objects.create(
@@ -248,7 +248,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     def update_existing_messages_read_count(self):
         """기존 메시지들의 읽음 수 재계산 (사용자 입장 시)"""
         try:
-            room = ChatRoom.objects.get(name=self.room_name)
+            room = ChatRoom.objects.get(id=self.room_id)
             
             # 최근 메시지들만 처리 (성능 최적화)
             recent_messages = ChatMessage.objects.filter(
@@ -301,7 +301,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         
         try:
             user = User.objects.get(username=self.username)
-            room = ChatRoom.objects.get(name=self.room_name)
+            room = ChatRoom.objects.get(id=self.room_id)
             member, created = RoomMember.objects.get_or_create(room=room, user=user)
             member.is_currently_in_room = is_online
             member.last_seen = timezone.now()
@@ -314,14 +314,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         try:
             # 현재 방의 모든 멤버들의 안읽은 메시지 수 계산
             room_unread_data = await self.get_room_unread_counts()
-            
+            print("broadcast_unread_counts_update 호출됨")  # 로그 추가
             # 각 사용자별로 개별 브로드캐스트 (user_id 사용)
             for user_data in room_unread_data:
+                print("unread_count_update 전송:", user_data)  # 로그 추가
                 await self.channel_layer.group_send(
                     f"user_{user_data['user_id']}_global",
                     {
                         "type": "unread_count_update",
-                        "room_name": self.room_name,
+                        "room_id": self.room_id,
                         "unread_count": user_data['unread_count']
                     }
                 )
@@ -334,7 +335,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         try:
             from datetime import datetime
             
-            room = ChatRoom.objects.get(name=self.room_name)
+            room = ChatRoom.objects.get(id=self.room_id)
             members = RoomMember.objects.filter(room=room).select_related('user', 'last_read_message')
             
             unread_data = []
@@ -413,7 +414,7 @@ class GlobalNotificationConsumer(AsyncWebsocketConsumer):
         """안읽은 메시지 수 업데이트 전송"""
         await self.send(text_data=json.dumps({
             "type": "unread_count_update",
-            "room_name": event["room_name"],
+            "room_id": event["room_id"],
             "unread_count": event["unread_count"]
         }))
 
@@ -457,7 +458,7 @@ class GlobalNotificationConsumer(AsyncWebsocketConsumer):
                     is_deleted=False
                 ).count()
                 
-                unread_counts[membership.room.name] = unread_count
+                unread_counts[membership.room.id] = unread_count
             
             return unread_counts
             

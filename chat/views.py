@@ -28,9 +28,9 @@ def index(request):
     """채팅 메인 페이지"""
     return render(request, "chat/index.html")
 
-def room(request, room_name):
+def room(request, room_id):
     """채팅방 페이지"""
-    return render(request, "chat/room.html", {"room_name": room_name})
+    return render(request, "chat/room.html", {"room_id": room_id})
 
 
 # 인증 관련 API
@@ -449,9 +449,9 @@ class GetMessageAPIView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, room_name):
+    def get(self, request, room_id):
         try:
-            room = ChatRoom.objects.get(name=room_name, is_active=True)
+            room = ChatRoom.objects.get(id=room_id, is_active=True)
             room_member = RoomMember.objects.get(room=room, user=request.user)
 
             # 사용자 입장 시점 이후 메시지만 조회
@@ -488,9 +488,9 @@ class JoinRoomAPIView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, room_name):
+    def post(self, request, room_id):
         try:
-            room = ChatRoom.objects.get(name=room_name, is_active=True)
+            room = ChatRoom.objects.get(id=room_id, is_active=True)
         except ChatRoom.DoesNotExist:
             return Response(
                 {"detail": "존재하지 않는 채팅방입니다."},
@@ -531,7 +531,7 @@ class JoinRoomAPIView(APIView):
                 f"user_{request.user.id}_global",
                 {
                     "type": "unread_count_update",
-                    "room_name": room_name,
+                    "room_id": room_id,
                     "unread_count": unread_count
                 }
             )
@@ -560,9 +560,9 @@ class LeaveRoomAPIView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, room_name):
+    def post(self, request, room_id):
         try:
-            room = ChatRoom.objects.get(name=room_name, is_active=True)
+            room = ChatRoom.objects.get(id=room_id, is_active=True)
         except ChatRoom.DoesNotExist:
             return Response(
                 {"detail": "존재하지 않는 채팅방입니다."},
@@ -615,7 +615,7 @@ class LeaveRoomAPIView(APIView):
                     
                     channel_layer = get_channel_layer()
                     async_to_sync(channel_layer.group_send)(
-                        f"chat_{room_name}",
+                        f"chat_{room_id}",
                         {
                             "type": "messages_read_count_update",
                             "updated_messages": updated_messages,
@@ -676,9 +676,9 @@ class RoomInfoAPIView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, room_name):
+    def get(self, request, room_id):
         try:
-            room = ChatRoom.objects.get(name=room_name, is_active=True)
+            room = ChatRoom.objects.get(id=room_id, is_active=True)
         except ChatRoom.DoesNotExist:
             return Response(
                 {"success": False, "detail": "존재하지 않는 채팅방입니다."},
@@ -711,9 +711,9 @@ class MarkAsReadAPIView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, room_name):
+    def post(self, request, room_id):
         try:
-            room = ChatRoom.objects.get(name=room_name)
+            room = ChatRoom.objects.get(id=room_id)
             user = request.user
             member = RoomMember.objects.get(room=room, user=user)
             
@@ -759,7 +759,7 @@ class MarkAsReadAPIView(APIView):
                     
                     channel_layer = get_channel_layer()
                     async_to_sync(channel_layer.group_send)(
-                        f"chat_{room_name}",
+                        f"chat_{room_id}",
                         {
                             "type": "messages_read_count_update",
                             "updated_messages": updated_messages,
@@ -779,7 +779,7 @@ class MarkAsReadAPIView(APIView):
                         f"user_{user.id}_global",
                         {
                             "type": "unread_count_update",
-                            "room_name": room_name,
+                            "room_id": room_id,
                             "unread_count": final_unread_count
                         }
                     )
@@ -810,9 +810,9 @@ class DisconnectRoomAPIView(APIView):
     """
     permission_classes = [IsAuthenticated]
     
-    def post(self, request, room_name):
+    def post(self, request, room_id):
         try:
-            room = ChatRoom.objects.get(name=room_name, is_active=True)
+            room = ChatRoom.objects.get(id=room_id, is_active=True)
             member = RoomMember.objects.get(room=room, user=request.user)
             
             # 실시간 접속 상태만 변경
@@ -892,10 +892,10 @@ class CreateReactionAPIView(APIView):
                 from asgiref.sync import async_to_sync
                 
                 channel_layer = get_channel_layer()
-                room_name = message.room.name
+                room_id = message.room.id
                 
                 async_to_sync(channel_layer.group_send)(
-                    f"chat_{room_name}",
+                    f"chat_{room_id}",
                     {
                         "type": "reaction_update",
                         "message_id": message_id,
@@ -966,9 +966,9 @@ class FileUploadAPIView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
-    def post(self, request, room_name):
+    def post(self, request, room_id):
         try:
-            room = ChatRoom.objects.get(name=room_name, is_active=True)
+            room = ChatRoom.objects.get(id=room_id, is_active=True)
             user = request.user
 
             # 방 멤버 권한 확인
@@ -1014,7 +1014,7 @@ class FileUploadAPIView(APIView):
 
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.group_send)(
-                f"chat_{room_name}",
+                f"chat_{room_id}",
                 {
                     'type': 'file_message',
                     'message_id': chat_message.id,
@@ -1048,7 +1048,7 @@ class FileUploadAPIView(APIView):
                     f"user_{member.user.id}_global",
                     {
                         "type": "unread_count_update",
-                        "room_name": room_name,
+                        "room_id": room_id,
                         "unread_count": unread_count
                     }
                 )
