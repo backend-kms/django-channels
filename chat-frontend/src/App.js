@@ -9,15 +9,16 @@ axios.defaults.baseURL = API_BASE_URL;
 axios.defaults.withCredentials = false;
 
 // 메시지 반응 컴포넌트
-const MessageReactions = ({ messageId, currentUser, reactions: initialReactions }) => {
+const MessageReactions = ({ messageId, currentUser, reactions: initialReactions, userReaction: initialUserReaction }) => {
   const [reactions, setReactions] = useState({
     like: 0,
     good: 0,
     check: 0,
     ...initialReactions
   });
-  const [userReaction, setUserReaction] = useState(null);
+  const [userReaction, setUserReaction] = useState(initialUserReaction);
   const [isLoading, setIsLoading] = useState(false);
+  
 
   // 반응 이모지 매핑
   const reactionEmojis = {
@@ -27,6 +28,7 @@ const MessageReactions = ({ messageId, currentUser, reactions: initialReactions 
   };
 
   useEffect(() => {
+    setUserReaction(initialUserReaction);
     if (initialReactions) {
       setReactions(prev => ({
         like: 0,
@@ -35,13 +37,14 @@ const MessageReactions = ({ messageId, currentUser, reactions: initialReactions 
         ...initialReactions
       }));
     }
-  }, [initialReactions]);
+  }, [initialReactions, initialUserReaction]);
 
   // 반응 토글
   const handleReactionClick = async (reactionType) => {
     if (isLoading) return;
 
     setIsLoading(true);
+    setUserReaction(userReaction === reactionType ? null : reactionType);
 
     try {
       const response = await axios.post(`/api/messages/${messageId}/reaction/`, {
@@ -127,6 +130,48 @@ function App() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
+  const [messagePagination, setMessagePagination] = useState({
+    next: null,
+    previous: null,
+    count: 0,
+    currentPage: 1,
+    pageSize: 30
+  });
+
+  const fetchNextMessages = useCallback(async () => {
+  if (!messagePagination.next) return;
+  const nextUrl = messagePagination.next.replace(API_BASE_URL, '');
+  const response = await axios.get(nextUrl);
+  if (response.data && response.data.results) {
+    const moreMessages = response.data.results.map(msg => ({
+      id: msg.id,
+      message_id: msg.id,
+      text: msg.content || msg.message,
+      author: msg.username || 'Anonymous',
+      time: new Date(msg.created_at).toLocaleTimeString(),
+      isSystem: msg.message_type === 'system',
+      isFile: msg.message_type === 'file' || msg.message_type === 'image',
+      isImage: msg.is_image || msg.message_type === 'image',
+      messageType: msg.message_type,
+      fileName: msg.file_name,
+      fileSize: msg.file_size,
+      fileSizeHuman: msg.file_size_human,
+      fileUrl: msg.file,             
+      unreadCount: msg.unread_count || 0,
+      isReadByAll: msg.is_read_by_all || false,
+      userId: msg.user_id,
+      reactions: msg.reactions || {},
+      userReaction: msg.user_reaction || null
+    })).reverse();
+    setMessages(prev => [...moreMessages, ...prev]);
+    setMessagePagination({
+      ...messagePagination,
+      next: response.data.next,
+      previous: response.data.previous,
+      currentPage: messagePagination.currentPage + 1
+    });
+  }
+}, [messagePagination, setMessages, setMessagePagination]);
 
   // JWT 토큰 관리
   const setAuthToken = useCallback((token) => {
@@ -295,9 +340,11 @@ function App() {
     setMessages(prevMessages => {
       return prevMessages.map(msg => {
         if (msg.message_id === data.message_id) {
+          console.log('반응 업데이트 적용:', data.user_reaction);
           return {
             ...msg,
             reactions: data.reaction_counts,
+            userReaction: data.user_reaction,
             lastReactionUpdate: Date.now()
           };
         }
@@ -502,7 +549,7 @@ function App() {
       console.log('1. 방 입장 시도:', targetRoomName);
 
       // 방 입장 API 호출
-      const joinResponse = await axios.post(`/api/rooms/${targetRoomName}/join/`);
+      const joinResponse = await axios.post(`/api/rooms/${targetRoomName}/join/?page=1&page_size=30`);
       
       if (joinResponse.data.success) {
         console.log('2. 서버 입장 성공');
@@ -511,7 +558,7 @@ function App() {
         // 채팅 메시지 히스토리 로드
         const messagesResponse = await axios.get(`/api/rooms/${targetRoomName}/messages/`);
         if (messagesResponse.data) {
-          const loadedMessages = messagesResponse.data.map(msg => ({
+          const loadedMessages = messagesResponse.data.results.map(msg => ({
             id: msg.id,
             message_id: msg.id,
             text: msg.content || msg.message,
@@ -528,9 +575,18 @@ function App() {
             unreadCount: msg.unread_count || 0,
             isReadByAll: msg.is_read_by_all || false,
             userId: msg.user_id,
-            reactions: msg.reactions || {}
-          }));
+            reactions: msg.reactions || {},
+            userReaction: msg.user_reaction || null
+          })).reverse(); // 최신 메시지가 아래로 오도록 순서 변경
           setMessages(loadedMessages);
+
+          setMessagePagination({
+            next: messagesResponse.data.next,
+            previous: messagesResponse.data.previous,
+            count: messagesResponse.data.count,
+            currentPage: 1,
+            pageSize: 30
+          });
 
           setTimeout(() => markAsRead(targetRoomName), 300);
         }
@@ -916,6 +972,7 @@ function App() {
   }, [isAuthenticated, fetchRooms, fetchMyRooms, fetchStats, currentRoom, fetchCurrentRoomInfo]);
 
   // 4. WebSocket 정리 (컴포넌트 언마운트 시)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     return () => {
       if (socket) {
@@ -925,7 +982,7 @@ function App() {
         globalSocketRef.current.close();
       }
     };
-  }, [socket]);
+  }, []);
 
   // 5. 읽음 처리 (채팅창 활성화 시)
   useEffect(() => {
@@ -953,6 +1010,21 @@ function App() {
       }, 50);
     }
   }, [currentRoom, messages.length]);
+
+  useEffect(() => {
+    const messagesContainer = document.querySelector('.chat-messages');
+    if (!messagesContainer) return;
+
+    const handleScroll = () => {
+      if (messagesContainer.scrollTop === 0 && messagePagination.next) {
+        // 맨 위에 닿으면 다음 페이지 메시지 로드
+        fetchNextMessages();
+      }
+    };
+
+    messagesContainer.addEventListener('scroll', handleScroll);
+    return () => messagesContainer.removeEventListener('scroll', handleScroll);
+  }, [messagePagination.next, fetchNextMessages]);
 
   useEffect(() => {
     return () => {
@@ -1098,6 +1170,7 @@ function App() {
                     messageId={msg.message_id}
                     currentUser={user?.username}
                     reactions={msg.reactions}
+                    userReaction={msg.userReaction}
                   />
                 </>
               ) : (

@@ -26,6 +26,7 @@ class ChatMessageSerializer(serializers.ModelSerializer):
     user_id = serializers.IntegerField(source="user.id")
     room_name = serializers.CharField(source="room.name")
     reactions=serializers.SerializerMethodField()
+    user_reaction = serializers.SerializerMethodField()
 
     class Meta:
         model = ChatMessage
@@ -42,6 +43,7 @@ class ChatMessageSerializer(serializers.ModelSerializer):
             "created_at",
             "edited_at",
             "reactions",
+            "user_reaction",
             "unread_count",
             "is_read_by_all",
         ]
@@ -58,6 +60,14 @@ class ChatMessageSerializer(serializers.ModelSerializer):
             if r.reaction_type in reaction_counts:
                 reaction_counts[r.reaction_type] += 1
         return reaction_counts
+    
+    def get_user_reaction(self, obj):
+        request = self.context.get('request')
+        reaction = MessageReaction.objects.filter(
+            message=obj, user=request.user
+        ).first()
+        return reaction.reaction_type if reaction else None
+    
 class PushSubscriptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = PushSubscription

@@ -20,6 +20,7 @@ from django.utils import timezone
 from django.contrib.auth import authenticate
 from drf_spectacular.utils import extend_schema
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.pagination import PageNumberPagination
 
 
 # 테스트용 템플릿 뷰
@@ -454,18 +455,19 @@ class GetMessageAPIView(APIView):
             room_member = RoomMember.objects.get(room=room, user=request.user)
 
             # 사용자 입장 시점 이후 메시지만 조회
-            messages = (
-                ChatMessage.objects.filter(
-                    room=room,
-                    is_deleted=False,
-                    created_at__gte=room_member.joined_at,
-                )
-                .select_related("user", "room")
-                .order_by("created_at")
-            )
+            messages = ChatMessage.objects.filter(
+                room=room,
+                is_deleted=False,
+                created_at__gte=room_member.joined_at,
+            ).select_related("user", "room").order_by("-created_at")
 
-            serializer = ChatMessageSerializer(messages, many=True)
-            return Response(serializer.data)
+            # 페이지네이션 적용
+            paginator = PageNumberPagination()
+            paginator.page_size = 30
+            paginated_messages = paginator.paginate_queryset(messages, request)
+
+            serializer = ChatMessageSerializer(paginated_messages, many=True, context={"request": request})
+            return paginator.get_paginated_response(serializer.data)
 
         except ChatRoom.DoesNotExist:
             return Response(

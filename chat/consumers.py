@@ -172,6 +172,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'action': event['action'],
             'reaction_type': event['reaction_type'],
             'reaction_counts': event['reaction_counts'],
+            "user_reaction": event['user_reaction', None],
             'user': event['user']
         }))
         
