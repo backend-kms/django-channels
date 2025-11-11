@@ -902,7 +902,6 @@ class CreateReactionAPIView(APIView):
                         "action": action,
                         "reaction_type": reaction_type,
                         "reaction_counts": reaction_counts,
-                        "user_reaction": reaction_type,
                         "user": request.user.username
                     }
                 )

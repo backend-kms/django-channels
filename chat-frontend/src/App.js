@@ -28,7 +28,6 @@ const MessageReactions = ({ messageId, currentUser, reactions: initialReactions,
   };
 
   useEffect(() => {
-    setUserReaction(initialUserReaction);
     if (initialReactions) {
       setReactions(prev => ({
         like: 0,
@@ -37,7 +36,14 @@ const MessageReactions = ({ messageId, currentUser, reactions: initialReactions,
         ...initialReactions
       }));
     }
-  }, [initialReactions, initialUserReaction]);
+    // userReaction은 최초 마운트(방 입장/새로고침) 때만 초기화!
+    // WebSocket으로 리액션 개수만 바뀔 때는 건드리지 않음
+  }, [initialReactions]);
+
+  useEffect(() => {
+    setUserReaction(initialUserReaction);
+    // 이 useEffect는 최초 마운트 시에만 실행되도록 의존성 배열을 []로!
+  }, []);
 
   // 반응 토글
   const handleReactionClick = async (reactionType) => {
@@ -340,11 +346,11 @@ function App() {
     setMessages(prevMessages => {
       return prevMessages.map(msg => {
         if (msg.message_id === data.message_id) {
-          console.log('반응 업데이트 적용:', data.user_reaction);
+          // console.log('반응 업데이트 적용:', data.user_reaction);
           return {
             ...msg,
             reactions: data.reaction_counts,
-            userReaction: data.user_reaction,
+            reactionType: data.reaction_type,
             lastReactionUpdate: Date.now()
           };
         }
@@ -972,7 +978,6 @@ function App() {
   }, [isAuthenticated, fetchRooms, fetchMyRooms, fetchStats, currentRoom, fetchCurrentRoomInfo]);
 
   // 4. WebSocket 정리 (컴포넌트 언마운트 시)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     return () => {
       if (socket) {
@@ -982,7 +987,7 @@ function App() {
         globalSocketRef.current.close();
       }
     };
-  }, []);
+  }, [socket]);
 
   // 5. 읽음 처리 (채팅창 활성화 시)
   useEffect(() => {
