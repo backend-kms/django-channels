@@ -41,9 +41,8 @@ const MessageReactions = ({ messageId, currentUser, reactions: initialReactions,
   }, [initialReactions]);
 
   useEffect(() => {
-    setUserReaction(initialUserReaction);
-    // 이 useEffect는 최초 마운트 시에만 실행되도록 의존성 배열을 []로!
-  }, []);
+  setUserReaction(initialUserReaction);
+}, [initialUserReaction]);
 
   // 반응 토글
   const handleReactionClick = async (reactionType) => {
