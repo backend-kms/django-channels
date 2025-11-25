@@ -173,111 +173,135 @@ const ChatRoom = ({
           </button>
         </div>
       </div>
-
+      
       <div className="chat-messages">
         {messages.length === 0 ? (
           <div className="empty-state">
             <span className="empty-icon">🌟</span>
             <p>첫 번째 메시지를 보내보세요!</p>
           </div>
-        ) : messages.map(msg => (
-          <div 
-            key={msg.id} 
-            className={`message ${
-              msg.isSystem ? 'system-message' : 
-              msg.author === user?.username ? 'my-message' : 'other-message'
-            }`}
-            data-message-id={msg.message_id}
-          >
-            <div className="message-header">
-              <span className="author">{msg.author}</span>
-              <span className="time">{msg.time}</span>
-            </div>
+        ) : (() => {
+          let lastDate = '';
+          return messages.map((msg, idx) => {
+            let dateKey = '';
+            console.log( msg)
+            if (msg.created_at) {
+              dateKey = new Date(msg.created_at).toDateString();
+            }
+
+            const displayDate = new Date(dateKey).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
             
-            {!msg.isSystem ? (
-              <>
-                <div className="message-wrapper">
-                  <div className="message-bubble">
-                    {msg.isFile ? (
-                      <div className="file-message">
-                        {msg.isImage ? (
-                          <div className="image-message">
-                            <img 
-                              src={`http://localhost:8000${msg.fileUrl}`}
-                              alt={msg.fileName}
-                              className="message-image"
-                              onClick={() => handleFileDownload(msg.fileUrl, msg.fileName)}
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                                e.target.nextSibling.style.display = 'block';
-                              }}
-                            />
-                            <div className="image-fallback" style={{display: 'none'}}>
-                              <div className="file-icon">🖼️</div>
-                              <div className="file-details">
-                                <div className="file-name">{msg.fileName}</div>
-                                <div className="file-size">{msg.fileSizeHuman}</div>
-                                <button 
-                                  className="download-btn"
-                                  onClick={() => handleFileDownload(msg.fileUrl, msg.fileName)}
-                                >
-                                  다운로드
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="file-attachment">
-                            <div className="file-icon">📎</div>
-                            <div className="file-details">
-                              <div className="file-name">{msg.fileName}</div>
-                              <div className="file-size">{msg.fileSizeHuman}</div>
-                            </div>
-                            <button 
-                              className="download-btn"
-                              onClick={() => handleFileDownload(msg.fileUrl, msg.fileName)}
-                            >
-                              다운로드
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="message-content">{msg.text}</div>
-                    )}
+            const showDateLine = idx === 0 || dateKey !== lastDate;
+            lastDate = dateKey;
+
+            return (
+              <React.Fragment key={msg.id}>
+                {showDateLine && (
+                  <div className="date-separator">
+                    <span>{displayDate}</span>
+                  </div>
+                )}
+                <div 
+                  key={msg.id} 
+                  className={`message ${
+                    msg.isSystem ? 'system-message' : 
+                    msg.author === user?.username ? 'my-message' : 'other-message'
+                  }`}
+                  data-message-id={msg.message_id}
+                >
+                  <div className="message-header">
+                    <span className="author">{msg.author}</span>
+                    <span className="time">{msg.time}</span>
                   </div>
                   
-                  <div className="read-status">
-                    {msg.author === user?.username ? (
-                      msg.unreadCount > 0 && (
-                        <span className="unread-count">{msg.unreadCount}</span>
-                      )
-                    ) : (
-                      msg.isReadByAll ? (
-                        <span className="read-all"></span>
-                      ) : msg.unreadCount > 0 ? (
-                        <span className="unread-count">{msg.unreadCount}</span>
-                      ) : null
-                    )}
-                  </div>
+                  {!msg.isSystem ? (
+                    <>
+                      <div className="message-wrapper">
+                        <div className="message-bubble">
+                          {msg.isFile ? (
+                            <div className="file-message">
+                              {msg.isImage ? (
+                                <div className="image-message">
+                                  <img 
+                                    src={`http://localhost:8000${msg.fileUrl}`}
+                                    alt={msg.fileName}
+                                    className="message-image"
+                                    onClick={() => handleFileDownload(msg.fileUrl, msg.fileName)}
+                                    onError={(e) => {
+                                      e.target.style.display = 'none';
+                                      e.target.nextSibling.style.display = 'block';
+                                    }}
+                                  />
+                                  <div className="image-fallback" style={{display: 'none'}}>
+                                    <div className="file-icon">🖼️</div>
+                                    <div className="file-details">
+                                      <div className="file-name">{msg.fileName}</div>
+                                      <div className="file-size">{msg.fileSizeHuman}</div>
+                                      <button 
+                                        className="download-btn"
+                                        onClick={() => handleFileDownload(msg.fileUrl, msg.fileName)}
+                                      >
+                                        다운로드
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="file-attachment">
+                                  <div className="file-icon">📎</div>
+                                  <div className="file-details">
+                                    <div className="file-name">{msg.fileName}</div>
+                                    <div className="file-size">{msg.fileSizeHuman}</div>
+                                  </div>
+                                  <button 
+                                    className="download-btn"
+                                    onClick={() => handleFileDownload(msg.fileUrl, msg.fileName)}
+                                  >
+                                    다운로드
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="message-content">{msg.text}</div>
+                          )}
+                        </div>
+                        
+                        <div className="read-status">
+                          {msg.author === user?.username ? (
+                            msg.unreadCount > 0 && (
+                              <span className="unread-count">{msg.unreadCount}</span>
+                            )
+                          ) : (
+                            msg.isReadByAll ? (
+                              <span className="read-all"></span>
+                            ) : msg.unreadCount > 0 ? (
+                              <span className="unread-count">{msg.unreadCount}</span>
+                            ) : null
+                          )}
+                        </div>
+                      </div>
+                      
+                      <MessageReactions 
+                        messageId={msg.message_id}
+                        currentUser={user?.username}
+                        reactions={msg.reactions}
+                        userReaction={msg.userReaction}
+                      />
+                    </>
+                  ) : (
+                    <div className="message-bubble">
+                      <div className="message-content">{msg.text}</div>
+                    </div>
+                  )}
                 </div>
-                
-                <MessageReactions 
-                  messageId={msg.message_id}
-                  currentUser={user?.username}
-                  reactions={msg.reactions}
-                  userReaction={msg.userReaction}
-                />
-              </>
-            ) : (
-              <div className="message-bubble">
-                <div className="message-content">{msg.text}</div>
-              </div>
-            )}
-          </div>
-        ))}
+              </React.Fragment>
+            );
+          });
+        })()}
         <div ref={messagesEndRef} />
       </div>
+    
       <div className="message-input">
         {/* 파일 선택 표시 */}
         {selectedFile && (
@@ -630,6 +654,7 @@ function AppWrapper() {
       message_id: msg.id,
       text: msg.content || msg.message,
       author: msg.username || 'Anonymous',
+      created_at: msg.created_at,
       time: new Date(msg.created_at).toLocaleTimeString(),
       isSystem: msg.message_type === 'system',
       isFile: msg.message_type === 'file' || msg.message_type === 'image',
@@ -853,6 +878,7 @@ function AppWrapper() {
       message_id: data.message_id,
       text: data.message,
       author: data.username,
+      created_at: data.timestamp,
       time: data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString(),
       isSystem: false,
       unreadCount: data.unread_count || 0,
@@ -1049,6 +1075,7 @@ function AppWrapper() {
             message_id: msg.id,
             text: msg.content || msg.message,
             author: msg.username || 'Anonymous',
+            created_at: msg.created_at,
             time: new Date(msg.created_at).toLocaleTimeString(),
             isSystem: msg.message_type === 'system',
             isFile: msg.message_type === 'file' || msg.message_type === 'image',

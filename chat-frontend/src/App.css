@@ -1154,3 +1154,16 @@ section {
   font-size: 0.7rem;
   font-weight: 600;
 }
+
+.date-separator {
+  text-align: center;
+  margin: 16px auto;
+  color: rgb(196, 193, 193);
+  font-size: 0.85em;
+  font-weight: bold;
+  background: rgba(136, 136, 136, 0.5);
+  border-radius: 10px;
+  padding: 2px 16px; 
+  display: block;
+  width: fit-content;
+}
