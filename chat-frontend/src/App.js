@@ -618,7 +618,7 @@ function AppWrapper() {
     currentPage: 1,
     pageSize: 30
   });
-  const [isJoining, setIsJoining] = useState(false);
+  // const [isJoining, setIsJoining] = useState(false);
 
   const fetchNextMessages = useCallback(async () => {
   if (!messagePagination.next) return;
