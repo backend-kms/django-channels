@@ -860,7 +860,12 @@ function AppWrapper() {
       userId: data.user_id,
       reactions: {}
     };
-    setMessages(prev => [...prev, newMessage]);
+    setMessages(prev => {
+    if (prev.some(msg => msg.message_id === newMessage.message_id)) {
+      return prev;
+    }
+    return [...prev, newMessage];
+  });
     setTimeout(() => markAsRead(currentRoom), 100);
     if (data.username !== user?.username) {
       setMyRooms(prevRooms => 
